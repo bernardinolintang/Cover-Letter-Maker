@@ -21,7 +21,7 @@ import { downloadCoverLetterPDF } from "@/lib/pdf";
 import { downloadCoverLetterDOCX } from "@/lib/docx";
 import type { CandidateProfile, GenerationInstructions, CoverLetterApiRequest, CoverLetterApiResponse, QualityChecks } from "@/types/profile";
 
-const API_URL = "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const LOADING_MESSAGES = [
   "Analyzing job requirements...",

@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import type { GenerationInstructions } from "@/types/profile";
 import { loadInstructions, saveInstructions } from "@/lib/instructions";
 
-const API_URL = "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 interface InstructionsEditorProps {
   open: boolean;
