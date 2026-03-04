@@ -1,12 +1,24 @@
 import { z } from "zod";
 
+// Treat empty strings as undefined for optional fields
+const emptyToUndefined = z.preprocess(
+  (val) => (typeof val === "string" && val.trim() === "" ? undefined : val),
+  z.string().optional()
+);
+
+const optionalString = z.preprocess(
+  (val) => (typeof val === "string" && val.trim() === "" ? undefined : val),
+  z.string().optional()
+);
+
+
 // ── Candidate Profile ──────────────────────────────────────────────
 
 export const ExperienceSchema = z.object({
   title: z.string(),
   company: z.string(),
   start_date: z.string(),
-  end_date: z.string().optional(),
+  end_date: emptyToUndefined,
   description: z.string(),
   outcomes: z.array(z.string()).optional(),
 });
@@ -19,16 +31,19 @@ export const ProjectSchema = z.object({
 });
 
 export const CandidateProfileSchema = z.object({
-  name: z.string(),
-  degree_year: z.string().optional(),
-  programme: z.string().optional(),
-  university: z.string().optional(),
+  name: z.string().min(1, "Name is required"),
+  degree_year: emptyToUndefined,
+  programme: emptyToUndefined,
+  university: emptyToUndefined,
   location: z.string(),
   phone: z.string(),
-  email: z.string().email(),
-  linkedin_url: z.string().url().optional(),
-  website_url: z.string().url().optional(),
-  availability_default: z.string().optional(),
+  email: z.preprocess(
+    (val) => (typeof val === "string" && val.trim() === "" ? undefined : val),
+    z.string().email("Invalid email address")
+  ),
+  linkedin_url: optionalString,
+  website_url: optionalString,
+  availability_default: emptyToUndefined,
   skills: z.array(z.string()),
   experiences: z.array(ExperienceSchema),
   projects: z.array(ProjectSchema).optional(),
@@ -83,6 +98,7 @@ export const CoverLetterRequestSchema = z.object({
   recipient_location: z.string().optional(),
   date: z.string().optional(),
   document_ids: z.array(z.string()).optional(),
+  system_prompt: z.string().optional(),
 });
 
 export type CoverLetterRequest = z.infer<typeof CoverLetterRequestSchema>;

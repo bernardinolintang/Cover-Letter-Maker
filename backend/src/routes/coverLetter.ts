@@ -10,6 +10,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
     const parsed = CoverLetterRequestSchema.safeParse(req.body);
 
     if (!parsed.success) {
+      console.error("Validation errors:", JSON.stringify(parsed.error.flatten().fieldErrors));
       res.status(400).json({
         error: "Invalid request body",
         details: parsed.error.flatten().fieldErrors,

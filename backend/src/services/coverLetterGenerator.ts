@@ -29,6 +29,7 @@ export async function generateCoverLetter(
     recipient_location: recipientLocation,
     date: dateOverride,
     document_ids: documentIds,
+    system_prompt: customSystemPrompt,
   } = req;
 
   const availability =
@@ -68,9 +69,10 @@ export async function generateCoverLetter(
   });
 
   let coverLetterText = "";
+  const systemPrompt = customSystemPrompt || COVER_LETTER_SYSTEM_PROMPT;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const raw = await chatCompletion(COVER_LETTER_SYSTEM_PROMPT, userPrompt, {
+    const raw = await chatCompletion(systemPrompt, userPrompt, {
       temperature: 0.7,
       maxTokens: 2048,
     });
