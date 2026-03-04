@@ -1,14 +1,12 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import {
   insertDocument,
   getDocumentById,
   listDocuments,
 } from "../db/documents.js";
-import { extractText } from "../services/textExtractor.js";
+import { extractTextFromBuffer } from "../services/textExtractor.js";
 import type { DocumentType, DocumentUploadResponse } from "../types/index.js";
 
 const router = Router();
@@ -16,22 +14,8 @@ const router = Router();
 const VALID_DOC_TYPES = new Set(["resume", "transcript", "portfolio", "other"]);
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-const uploadDir = process.env.VERCEL ? "/tmp/uploads" : (process.env.UPLOAD_DIR || "./uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const id = uuidv4();
-    const ext = path.extname(file.originalname);
-    cb(null, `${id}${ext}`);
-  },
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (_req, file, cb) => {
     const allowed = [
@@ -68,13 +52,17 @@ router.post(
         return;
       }
 
-      const { text, warning } = await extractText(file.path, file.mimetype);
+      const { text, warning } = await extractTextFromBuffer(
+        file.buffer,
+        file.mimetype,
+        file.originalname
+      );
 
       if (warning) {
         console.warn(`Document extraction warning for ${file.originalname}: ${warning}`);
       }
 
-      const id = path.basename(file.filename, path.extname(file.filename));
+      const id = uuidv4();
 
       const doc = {
         id,
@@ -82,7 +70,7 @@ router.post(
         mime_type: file.mimetype,
         size_bytes: file.size,
         document_type: docType as DocumentType,
-        storage_path: file.path,
+        storage_path: "memory",
         extracted_text: text,
         created_at: new Date().toISOString(),
       };
