@@ -16,7 +16,7 @@ const router = Router();
 const VALID_DOC_TYPES = new Set(["resume", "transcript", "portfolio", "other"]);
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-const uploadDir = process.env.UPLOAD_DIR || "./uploads";
+const uploadDir = process.env.VERCEL ? "/tmp/uploads" : (process.env.UPLOAD_DIR || "./uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

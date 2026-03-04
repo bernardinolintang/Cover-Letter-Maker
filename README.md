@@ -1,173 +1,78 @@
 # CoverCraft
 
-AI-powered cover letter generator that produces professional, block-format cover letters from a candidate profile, job posting, and optional uploaded documents (resume, transcript, portfolio).
+AI-powered cover letter generator. Paste a job posting, and the AI writes a professional, personalized cover letter using your saved profile.
 
-## Run From Root
+## Tech Stack
 
-You can now run everything from the project root without `cd`:
-
-```sh
-npm install
-npm run install:all
-npm run dev
-```
-
-This starts:
-- Frontend at `http://localhost:8080`
-- Backend at `http://localhost:3001`
-
-Other root commands:
-
-```sh
-npm run dev:frontend
-npm run dev:backend
-npm run test:backend
-npm run build:frontend
-npm run build:backend
-```
-
-## Docker Compose
-
-If you prefer Docker:
-
-```sh
-docker compose up --build
-```
-
-This runs:
-- Frontend container at `http://localhost:8080`
-- Backend container at `http://localhost:3001`
-
-Stop containers:
-
-```sh
-docker compose down
-```
+| Layer    | Stack                                         |
+|----------|-----------------------------------------------|
+| Frontend | React 18, TypeScript, Vite, shadcn/ui, Tailwind CSS |
+| Backend  | Express.js, TypeScript, Groq SDK (Llama 3.3 70B)    |
+| Deploy   | Vercel (frontend static + backend serverless)        |
 
 ## Project Structure
 
 ```
-├── frontend/          React + Vite + shadcn/ui (Lovable)
-│   ├── src/           Components, pages, hooks, lib
-│   ├── public/        Static assets
-│   ├── supabase/      Edge functions (legacy)
-│   └── ...            Vite, Tailwind, TypeScript configs
-│
-├── backend/           Express + TypeScript API
-│   ├── src/
-│   │   ├── routes/        API endpoints
-│   │   ├── services/      LLM, text extraction, generation
-│   │   ├── validators/    Cover letter quality checks
-│   │   ├── prompts/       System prompts for LLM
-│   │   ├── db/            SQLite database layer
-│   │   └── types/         Zod schemas + TypeScript types
-│   └── tests/         Vitest test suite
-│
-└── README.md
+├── frontend/          React SPA (Vite)
+├── backend/           Express API
+├── api/               Vercel serverless entry point
+├── vercel.json        Vercel deployment config
+└── package.json       Root scripts (dev, build, test)
 ```
 
-## Tech Stack
+## Local Development
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui |
-| Backend | Express, TypeScript, SQLite (better-sqlite3) |
-| LLM | Groq API (Llama 3.3 70B Versatile) |
-| File Parsing | pdf-parse (PDF), mammoth (DOCX), raw fs (TXT) |
-| Validation | Zod (request schemas), custom validators (format, dashes, bullets) |
-| Testing | Vitest, Supertest |
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+ and npm
-
-### 1. Backend
-
-```sh
-cd backend
+```bash
+# 1. Install dependencies
 npm install
+npm run install:all
 
-# Create .env with your Groq API key
-# GROQ_API_KEY=gsk_...
-# GROQ_MODEL=llama-3.3-70b-versatile
-# PORT=3001
+# 2. Set up environment
+#    Backend: copy backend/.env and add your GROQ_API_KEY
+#    Frontend: frontend/.env already has VITE_API_URL=http://localhost:3001
 
+# 3. Start both servers
 npm run dev
 ```
 
-The API runs at `http://localhost:3001`.
+- Frontend: http://localhost:8080
+- Backend:  http://localhost:3001
 
-### 2. Frontend
+## Deploy to Vercel
 
-```sh
-cd frontend
-npm install
+1. Push this repo to GitHub
+2. Import the repo in [Vercel](https://vercel.com/new)
+3. **Do NOT change** the Root Directory (keep it as the repo root)
+4. Add environment variables in Vercel project settings:
+   - `GROQ_API_KEY` = your Groq API key
+   - `GROQ_MODEL` = `llama-3.3-70b-versatile` (optional, this is the default)
+5. Deploy
 
-# .env should contain VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
-npm run dev
-```
-
-The frontend runs at `http://localhost:8080`.
+Vercel will:
+- Build the frontend from `frontend/` (static files)
+- Deploy `api/index.ts` as a serverless function (Express backend)
+- Route `/api/*` to the serverless function
+- Route everything else to the SPA
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/documents/upload` | Upload a file (PDF, DOCX, TXT) with automatic text extraction |
-| `GET` | `/api/documents` | List all uploaded documents |
-| `GET` | `/api/documents/:id` | Get document metadata and extracted text |
-| `POST` | `/api/cover-letter` | Generate a cover letter |
-| `GET` | `/api/health` | Health check |
+| Method | Path                   | Purpose                                |
+|--------|------------------------|----------------------------------------|
+| POST   | /api/cover-letter      | Generate cover letter                  |
+| POST   | /api/documents/upload  | Upload file (PDF/DOCX/TXT)             |
+| GET    | /api/documents         | List uploaded documents                |
+| GET    | /api/documents/:id     | Get document with extracted text       |
+| POST   | /api/profile/extract   | Extract profile from document text     |
+| GET    | /api/default-prompt    | Get the default AI system prompt       |
+| GET    | /api/health            | Health check                           |
 
-### Cover Letter Request
+## Features
 
-```json
-{
-  "candidate_profile": {
-    "name": "Jane Doe",
-    "location": "Toronto, Ontario",
-    "phone": "(416) 555-0199",
-    "email": "jane@example.com",
-    "linkedin_url": "https://linkedin.com/in/janedoe",
-    "skills": ["Python", "React", "SQL"],
-    "experiences": [
-      {
-        "title": "Product Intern",
-        "company": "TechStart Inc.",
-        "start_date": "May 2024",
-        "end_date": "August 2024",
-        "description": "Led onboarding redesign.",
-        "outcomes": ["Reduced drop-off by 22%"]
-      }
-    ]
-  },
-  "job_posting": "Product Manager at Acme Corp...",
-  "document_ids": ["optional-uploaded-doc-id"]
-}
-```
-
-### Cover Letter Response
-
-Returns `cover_letter_text`, `extracted_fields` (role, company, matched experiences, chosen skills), and `quality_checks` (no dashes, no bullets, format ok, word count ok, availability mentioned).
-
-## Cover Letter Format Rules
-
-- Strict block layout: header, date, recipient, salutation, 3-4 body paragraphs, sign-off
-- No dashes (hyphens, en-dashes, em-dashes) anywhere
-- No bullet points or numbered lists
-- 280 to 380 words
-- Availability dates mentioned in opening paragraph
-- American spelling, confident and product-oriented tone
-
-## Running Tests
-
-```sh
-cd backend
-npm test        # 36 tests across validators, generation, and upload
-```
-
-## License
-
-Private project.
+- **Profile Editor** — save your personal info, education, skills, experiences, projects
+- **Resume Auto-fill** — upload a resume to auto-populate your profile
+- **Document Library** — upload portfolios, transcripts, etc. for AI reference
+- **Custom AI Prompt** — view and edit the system prompt that controls generation
+- **Collections** — organize generated letters into collections
+- **Dark Mode** — toggle between light and dark themes
+- **Export** — PDF, DOCX, TXT, or copy to clipboard
+- **Edit Output** — edit the generated letter before exporting

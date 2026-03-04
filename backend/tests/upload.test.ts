@@ -2,28 +2,26 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import fs from "fs";
 import path from "path";
-import { app } from "../src/index.js";
-import { closeDb } from "../src/db/index.js";
 
 const TEST_UPLOAD_DIR = "./test-uploads";
-const TEST_DB_PATH = "./data/test-covercraft.db";
 
-beforeAll(() => {
+let app: import("express").Express;
+
+beforeAll(async () => {
   process.env.UPLOAD_DIR = TEST_UPLOAD_DIR;
-  process.env.DB_PATH = TEST_DB_PATH;
+  process.env.VERCEL = "1";
 
   if (!fs.existsSync(TEST_UPLOAD_DIR)) {
     fs.mkdirSync(TEST_UPLOAD_DIR, { recursive: true });
   }
+
+  const mod = await import("../src/index.js");
+  app = mod.default;
 });
 
 afterAll(() => {
-  closeDb();
   if (fs.existsSync(TEST_UPLOAD_DIR)) {
     fs.rmSync(TEST_UPLOAD_DIR, { recursive: true, force: true });
-  }
-  if (fs.existsSync(TEST_DB_PATH)) {
-    fs.unlinkSync(TEST_DB_PATH);
   }
 });
 

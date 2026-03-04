@@ -18,7 +18,7 @@ import type { CandidateProfile, Experience, Project, Education, UploadedDocument
 import { loadProfile, saveProfile } from "@/lib/profile";
 import { loadDocuments, addDocument, removeDocument } from "@/lib/documents";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 interface ProfileEditorProps {
   open: boolean;

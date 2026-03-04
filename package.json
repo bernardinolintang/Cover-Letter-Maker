@@ -10,9 +10,7 @@
     "build:frontend": "npm --prefix frontend run build",
     "build:backend": "npm --prefix backend run build",
     "test:frontend": "npm --prefix frontend run test",
-    "test:backend": "npm --prefix backend run test",
-    "docker:up": "docker compose up --build",
-    "docker:down": "docker compose down"
+    "test:backend": "npm --prefix backend run test"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
