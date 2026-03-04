@@ -23,6 +23,20 @@ app.get("/api/default-prompt", (_req, res) => {
   res.json({ system_prompt: COVER_LETTER_SYSTEM_PROMPT });
 });
 
+app.use(
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction
+  ) => {
+    console.error("Unhandled Express error:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message || "Internal server error" });
+    }
+  }
+);
+
 if (!process.env.VERCEL) {
   const PORT = parseInt(process.env.PORT || "3001", 10);
   const server = app.listen(PORT, () => {
