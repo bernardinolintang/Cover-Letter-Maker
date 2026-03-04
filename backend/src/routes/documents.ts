@@ -122,7 +122,9 @@ router.get("/", (_req: Request, res: Response) => {
 // GET /api/documents/:id
 router.get("/:id", (req: Request, res: Response) => {
   try {
-    const doc = getDocumentById(req.params.id);
+    const idParam = req.params.id;
+    const documentId = Array.isArray(idParam) ? idParam[0] : idParam;
+    const doc = getDocumentById(documentId);
     if (!doc) {
       res.status(404).json({ error: "Document not found" });
       return;

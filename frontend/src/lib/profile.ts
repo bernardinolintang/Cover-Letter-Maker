@@ -1,4 +1,4 @@
-import type { CandidateProfile } from "@/types/profile";
+import type { CandidateProfile, Education } from "@/types/profile";
 
 const STORAGE_KEY = "covercraft-profile";
 
@@ -9,20 +9,37 @@ export const DEFAULT_PROFILE: CandidateProfile = {
   email: "",
   linkedin_url: "",
   website_url: "",
-  degree_year: "",
-  programme: "",
-  university: "",
   availability_default: "",
   skills: [],
   experiences: [],
   projects: [],
+  education: [],
 };
 
 export function loadProfile(): CandidateProfile {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULT_PROFILE };
-    return { ...DEFAULT_PROFILE, ...JSON.parse(raw) };
+    const data = JSON.parse(raw);
+
+    // Migrate legacy flat education fields → education array
+    if (!data.education || !Array.isArray(data.education)) {
+      const edu: Education[] = [];
+      if (data.programme || data.university || data.degree_year) {
+        edu.push({
+          id: crypto.randomUUID(),
+          programme: data.programme || "",
+          university: data.university || "",
+          degree_year: data.degree_year || "",
+        });
+      }
+      data.education = edu;
+      delete data.programme;
+      delete data.university;
+      delete data.degree_year;
+    }
+
+    return { ...DEFAULT_PROFILE, ...data };
   } catch {
     return { ...DEFAULT_PROFILE };
   }

@@ -4,6 +4,7 @@ export interface SavedCoverLetter {
   input: string;
   coverLetter: string;
   createdAt: string;
+  collectionId?: string;
 }
 
 const STORAGE_KEY = "covercraft-history";
@@ -27,6 +28,15 @@ export function saveToHistory(entry: Omit<SavedCoverLetter, "id" | "createdAt">)
   history.unshift(item);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(0, 50)));
   return item;
+}
+
+export function updateHistoryItem(id: string, updates: Partial<SavedCoverLetter>): void {
+  const history = loadHistory();
+  const idx = history.findIndex((h) => h.id === id);
+  if (idx >= 0) {
+    history[idx] = { ...history[idx], ...updates };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  }
 }
 
 export function deleteFromHistory(id: string) {

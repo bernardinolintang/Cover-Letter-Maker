@@ -2,6 +2,48 @@
 
 AI-powered cover letter generator that produces professional, block-format cover letters from a candidate profile, job posting, and optional uploaded documents (resume, transcript, portfolio).
 
+## Run From Root
+
+You can now run everything from the project root without `cd`:
+
+```sh
+npm install
+npm run install:all
+npm run dev
+```
+
+This starts:
+- Frontend at `http://localhost:8080`
+- Backend at `http://localhost:3001`
+
+Other root commands:
+
+```sh
+npm run dev:frontend
+npm run dev:backend
+npm run test:backend
+npm run build:frontend
+npm run build:backend
+```
+
+## Docker Compose
+
+If you prefer Docker:
+
+```sh
+docker compose up --build
+```
+
+This runs:
+- Frontend container at `http://localhost:8080`
+- Backend container at `http://localhost:3001`
+
+Stop containers:
+
+```sh
+docker compose down
+```
+
 ## Project Structure
 
 ```

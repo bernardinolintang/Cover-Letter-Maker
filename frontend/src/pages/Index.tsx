@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { Download, Sparkles, Loader2, History, User, Settings, AlertCircle, CheckCircle2, Pencil } from "lucide-react";
+import {
+  Download, Sparkles, Loader2, History, User, Settings,
+  AlertCircle, CheckCircle2, Pencil, Undo2, Redo2, Eraser,
+  Sun, Moon, Copy, FileDown, Edit3, Check,
+} from "lucide-react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,13 +13,22 @@ import { toast } from "sonner";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { InstructionsEditor } from "@/components/InstructionsEditor";
-import { loadHistory, saveToHistory, deleteFromHistory, SavedCoverLetter } from "@/lib/history";
+import { loadHistory, saveToHistory, deleteFromHistory, updateHistoryItem, SavedCoverLetter } from "@/lib/history";
 import { loadProfile, isProfileComplete } from "@/lib/profile";
 import { loadInstructions } from "@/lib/instructions";
+import { loadDocuments } from "@/lib/documents";
 import { downloadCoverLetterPDF } from "@/lib/pdf";
+import { downloadCoverLetterDOCX } from "@/lib/docx";
 import type { CandidateProfile, GenerationInstructions, CoverLetterApiRequest, CoverLetterApiResponse, QualityChecks } from "@/types/profile";
 
 const API_URL = "http://localhost:3001";
+
+const LOADING_MESSAGES = [
+  "Analyzing job requirements...",
+  "Matching with your profile...",
+  "Crafting your personalized cover letter...",
+  "Polishing final details...",
+];
 
 function buildDefaultTitle(profileName: string, roleTitle?: string, company?: string): string {
   const firstName = profileName.split(" ")[0] || "My";
@@ -28,11 +42,18 @@ function buildDefaultTitle(profileName: string, roleTitle?: string, company?: st
 }
 
 const Index = () => {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
   const [input, setInput] = useState("");
+  const [inputHistory, setInputHistory] = useState<string[]>([""]);
+  const [historyIndex, setHistoryIndex] = useState(0);
   const [coverLetter, setCoverLetter] = useState("");
   const [letterTitle, setLetterTitle] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isEditingLetter, setIsEditingLetter] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [history, setHistory] = useState<SavedCoverLetter[]>([]);
   const [activeId, setActiveId] = useState<string>();
   const [showHistory, setShowHistory] = useState(false);
@@ -42,20 +63,64 @@ const Index = () => {
   const [instructions, setInstructions] = useState<GenerationInstructions>(loadInstructions);
   const [qualityChecks, setQualityChecks] = useState<QualityChecks | null>(null);
 
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
     setHistory(loadHistory());
     setProfile(loadProfile());
     setInstructions(loadInstructions());
   }, []);
 
+  // Cycle loading messages while generating
+  useEffect(() => {
+    if (!isGenerating) {
+      setLoadingStep(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setLoadingStep((prev) => Math.min(prev + 1, LOADING_MESSAGES.length - 1));
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [isGenerating]);
+
   const profileReady = isProfileComplete(profile);
+
+  const setJobPostingInput = (nextValue: string, recordHistory = true) => {
+    setInput(nextValue);
+    if (!recordHistory) return;
+    setInputHistory((prev) => {
+      const currentValue = prev[historyIndex];
+      if (currentValue === nextValue) return prev;
+      const trimmed = prev.slice(0, historyIndex + 1);
+      return [...trimmed, nextValue];
+    });
+    setHistoryIndex((prev) => prev + 1);
+  };
+
+  const handleUndoInput = () => {
+    if (historyIndex <= 0) return;
+    const nextIndex = historyIndex - 1;
+    setHistoryIndex(nextIndex);
+    setInput(inputHistory[nextIndex] || "");
+  };
+
+  const handleRedoInput = () => {
+    if (historyIndex >= inputHistory.length - 1) return;
+    const nextIndex = historyIndex + 1;
+    setHistoryIndex(nextIndex);
+    setInput(inputHistory[nextIndex] || "");
+  };
+
+  const handleClearInput = () => {
+    if (!input.trim()) return;
+    setJobPostingInput("");
+  };
 
   const handleGenerate = async () => {
     if (!input.trim()) {
       toast.error("Please paste a job posting first.");
       return;
     }
-
     if (!profileReady) {
       toast.error("Please complete your profile first (name, email, location, phone).");
       setShowProfile(true);
@@ -66,15 +131,21 @@ const Index = () => {
     setCoverLetter("");
     setQualityChecks(null);
     setActiveId(undefined);
+    setIsEditingLetter(false);
 
     try {
-      const { experiences, projects, ...profileRest } = profile;
+      const { experiences, projects, education, ...profileRest } = profile;
 
       const cleanProfile = Object.fromEntries(
         Object.entries(profileRest).map(([k, v]) =>
           [k, typeof v === "string" && v.trim() === "" ? undefined : v]
         )
       );
+
+      const primaryEdu = education[0];
+
+      const docs = loadDocuments();
+      const documentIds = docs.map((d) => d.id);
 
       const body: CoverLetterApiRequest = {
         candidate_profile: {
@@ -84,6 +155,9 @@ const Index = () => {
           phone: profile.phone,
           email: profile.email,
           skills: profile.skills,
+          ...(primaryEdu?.programme && { programme: primaryEdu.programme }),
+          ...(primaryEdu?.university && { university: primaryEdu.university }),
+          ...(primaryEdu?.degree_year && { degree_year: primaryEdu.degree_year }),
           experiences: experiences.map(({ id: _id, ...rest }) => rest),
           projects: projects.length > 0
             ? projects.map(({ id: _id, ...rest }) => rest)
@@ -98,6 +172,7 @@ const Index = () => {
         ...(instructions.recipient_location && { recipient_location: instructions.recipient_location }),
         ...(instructions.date && { date: instructions.date }),
         ...(instructions.system_prompt && { system_prompt: instructions.system_prompt }),
+        ...(documentIds.length > 0 && { document_ids: documentIds }),
       };
 
       const resp = await fetch(`${API_URL}/api/cover-letter`, {
@@ -145,10 +220,13 @@ const Index = () => {
 
   const handleSelectHistory = (item: SavedCoverLetter) => {
     setInput(item.input);
+    setInputHistory([item.input]);
+    setHistoryIndex(0);
     setCoverLetter(item.coverLetter);
     setLetterTitle(item.title);
     setActiveId(item.id);
     setQualityChecks(null);
+    setIsEditingLetter(false);
   };
 
   const handleDeleteHistory = (id: string) => {
@@ -156,6 +234,10 @@ const Index = () => {
     setHistory(loadHistory());
     if (activeId === id) setActiveId(undefined);
     toast.success("Removed from history");
+  };
+
+  const handleHistoryUpdated = () => {
+    setHistory(loadHistory());
   };
 
   const sanitizeFilename = (name: string) =>
@@ -178,11 +260,40 @@ const Index = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadDocx = async () => {
+    if (!coverLetter) return;
+    await downloadCoverLetterDOCX(coverLetter, `${sanitizeFilename(letterTitle)}.docx`);
+    toast.success("DOCX downloaded!");
+  };
+
+  const handleCopyToClipboard = async () => {
+    if (!coverLetter) return;
+    try {
+      await navigator.clipboard.writeText(coverLetter);
+      toast.success("Copied to clipboard!");
+    } catch {
+      toast.error("Failed to copy. Try selecting the text manually.");
+    }
+  };
+
+  const handleSaveEdit = () => {
+    setIsEditingLetter(false);
+    if (activeId) {
+      updateHistoryItem(activeId, { coverLetter });
+      setHistory(loadHistory());
+      toast.success("Changes saved");
+    }
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background transition-colors">
       {/* Header */}
       <header className="border-b border-border/50 px-6 py-5">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="CoverCraft" className="h-10 w-10 rounded-lg object-contain" />
             <div>
@@ -193,6 +304,21 @@ const Index = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {mounted && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="h-9 w-9"
+                title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              >
+                {theme === "dark" ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -235,7 +361,7 @@ const Index = () => {
       </header>
 
       {/* Main */}
-      <main className="mx-auto max-w-6xl px-6 py-10">
+      <main className="mx-auto max-w-7xl px-6 py-10">
         <div className="mb-10 text-center">
           <h2 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
             Craft the perfect <span className="text-accent">cover letter</span>
@@ -248,7 +374,7 @@ const Index = () => {
           {!profileReady && (
             <button
               onClick={() => setShowProfile(true)}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 hover:bg-amber-100 transition-colors"
+              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 hover:bg-amber-100 transition-colors dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-900/50"
             >
               <AlertCircle className="h-4 w-4" />
               Complete your profile to get started
@@ -256,7 +382,7 @@ const Index = () => {
           )}
         </div>
 
-        <div className={`grid gap-8 ${showHistory ? "lg:grid-cols-[280px_1fr_1fr]" : "lg:grid-cols-2"}`}>
+        <div className={`grid gap-8 ${showHistory ? "lg:grid-cols-[300px_1fr_1fr]" : "lg:grid-cols-2"}`}>
           {/* History sidebar */}
           {showHistory && (
             <div className="rounded-xl border border-border/50 bg-card p-4">
@@ -269,6 +395,7 @@ const Index = () => {
                 onSelect={handleSelectHistory}
                 onDelete={handleDeleteHistory}
                 activeId={activeId}
+                onHistoryUpdated={handleHistoryUpdated}
               />
             </div>
           )}
@@ -277,33 +404,66 @@ const Index = () => {
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-foreground">Job Posting</label>
-              {profileReady && profile.name && (
-                <Badge variant="secondary" className="text-xs gap-1">
-                  <User className="h-3 w-3" />
-                  {profile.name}
-                </Badge>
-              )}
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUndoInput}
+                  disabled={historyIndex === 0}
+                  className="h-7 w-7 p-0"
+                  title="Undo"
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRedoInput}
+                  disabled={historyIndex >= inputHistory.length - 1}
+                  className="h-7 w-7 p-0"
+                  title="Redo"
+                >
+                  <Redo2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearInput}
+                  disabled={!input.trim()}
+                  className="h-7 w-7 p-0"
+                  title="Clear"
+                >
+                  <Eraser className="h-3.5 w-3.5" />
+                </Button>
+                {profileReady && profile.name && (
+                  <Badge variant="secondary" className="text-xs gap-1 ml-1">
+                    <User className="h-3 w-3" />
+                    {profile.name.split(" ")[0]}
+                  </Badge>
+                )}
+              </div>
             </div>
             <Textarea
               placeholder="Paste the full job posting here. The AI will extract the role, company, requirements, and tailor your cover letter to match your profile."
               className="min-h-[320px] resize-none border-border bg-card font-body text-sm leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-accent"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => setJobPostingInput(e.target.value)}
             />
+
+            {/* Generate Button */}
             <Button
               onClick={handleGenerate}
               disabled={isGenerating || !input.trim()}
-              className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 font-medium"
-              size="lg"
+              className="gap-3 bg-accent text-accent-foreground hover:bg-accent/90 font-semibold text-base h-14 rounded-xl shadow-lg shadow-accent/20 transition-all hover:shadow-xl hover:shadow-accent/30"
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating...
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="animate-pulse">{LOADING_MESSAGES[loadingStep]}</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4" />
+                  <Sparkles className="h-5 w-5" />
                   Generate Cover Letter
                 </>
               )}
@@ -315,13 +475,27 @@ const Index = () => {
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-foreground">Your Cover Letter</label>
               {coverLetter && (
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleDownloadTxt} className="gap-1.5 text-xs">
-                    <Download className="h-3.5 w-3.5" />
+                <div className="flex gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyToClipboard}
+                    className="gap-1.5 text-xs h-7"
+                    title="Copy to clipboard"
+                  >
+                    <Copy className="h-3 w-3" />
+                    Copy
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleDownloadTxt} className="gap-1.5 text-xs h-7">
+                    <Download className="h-3 w-3" />
                     .TXT
                   </Button>
-                  <Button size="sm" onClick={handleDownloadPDF} className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90 text-xs">
-                    <Download className="h-3.5 w-3.5" />
+                  <Button variant="outline" size="sm" onClick={handleDownloadDocx} className="gap-1.5 text-xs h-7">
+                    <FileDown className="h-3 w-3" />
+                    .DOCX
+                  </Button>
+                  <Button size="sm" onClick={handleDownloadPDF} className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90 text-xs h-7">
+                    <Download className="h-3 w-3" />
                     .PDF
                   </Button>
                 </div>
@@ -352,9 +526,44 @@ const Index = () => {
               </div>
             )}
 
-            <div className="min-h-[320px] rounded-lg border border-border bg-card p-6">
+            <div className="min-h-[320px] rounded-lg border border-border bg-card p-6 relative">
               {coverLetter ? (
-                <div className="cover-letter-output text-sm text-foreground">{coverLetter}</div>
+                <>
+                  {/* Edit toggle */}
+                  <div className="absolute top-3 right-3 z-10">
+                    {isEditingLetter ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSaveEdit}
+                        className="gap-1.5 text-xs h-7 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:border-green-800 dark:text-green-300"
+                      >
+                        <Check className="h-3 w-3" />
+                        Done
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsEditingLetter(true)}
+                        className="gap-1.5 text-xs h-7"
+                      >
+                        <Edit3 className="h-3 w-3" />
+                        Edit
+                      </Button>
+                    )}
+                  </div>
+
+                  {isEditingLetter ? (
+                    <Textarea
+                      value={coverLetter}
+                      onChange={(e) => setCoverLetter(e.target.value)}
+                      className="min-h-[300px] resize-y border-0 p-0 shadow-none focus-visible:ring-0 font-body text-sm leading-relaxed"
+                    />
+                  ) : (
+                    <div className="cover-letter-output text-sm text-foreground pr-16">{coverLetter}</div>
+                  )}
+                </>
               ) : (
                 <div className="flex h-full min-h-[280px] items-center justify-center">
                   <p className="text-center text-sm text-muted-foreground/50">

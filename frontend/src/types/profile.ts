@@ -1,3 +1,10 @@
+export interface Education {
+  id: string;
+  programme: string;
+  university: string;
+  degree_year?: string;
+}
+
 export interface Experience {
   id: string;
   title: string;
@@ -18,9 +25,6 @@ export interface Project {
 
 export interface CandidateProfile {
   name: string;
-  degree_year?: string;
-  programme?: string;
-  university?: string;
   location: string;
   phone: string;
   email: string;
@@ -30,6 +34,7 @@ export interface CandidateProfile {
   skills: string[];
   experiences: Experience[];
   projects: Project[];
+  education: Education[];
 }
 
 export interface GenerationInstructions {
@@ -43,8 +48,32 @@ export interface GenerationInstructions {
   system_prompt?: string;
 }
 
+export interface UploadedDocument {
+  id: string;
+  filename: string;
+  document_type: string;
+  uploadedAt: string;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface CoverLetterApiRequest {
-  candidate_profile: Omit<CandidateProfile, "experiences" | "projects"> & {
+  candidate_profile: {
+    name: string;
+    location: string;
+    phone: string;
+    email: string;
+    linkedin_url?: string;
+    website_url?: string;
+    availability_default?: string;
+    degree_year?: string;
+    programme?: string;
+    university?: string;
+    skills: string[];
     experiences: Omit<Experience, "id">[];
     projects?: Omit<Project, "id">[];
   };
