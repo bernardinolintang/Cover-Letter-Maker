@@ -1,12 +1,187 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useRef } from "react";
+import { FileText, Download, Sparkles, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cover-letter`;
 
 const Index = () => {
+  const [input, setInput] = useState("");
+  const [coverLetter, setCoverLetter] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const outputRef = useRef<HTMLDivElement>(null);
+
+  const handleGenerate = async () => {
+    if (!input.trim()) {
+      toast.error("Please enter some details first.");
+      return;
+    }
+
+    setIsGenerating(true);
+    setCoverLetter("");
+
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ input }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to generate cover letter");
+      }
+
+      if (!resp.body) throw new Error("No response body");
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let full = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              full += content;
+              setCoverLetter(full);
+            }
+          } catch {
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleDownload = () => {
+    if (!coverLetter) return;
+    const blob = new Blob([coverLetter], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "cover-letter.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Cover letter downloaded!");
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-border/50 px-6 py-5">
+        <div className="mx-auto flex max-w-5xl items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+            <FileText className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <div>
+            <h1 className="font-display text-xl font-semibold tracking-tight text-foreground">
+              CoverCraft
+            </h1>
+            <p className="text-xs text-muted-foreground">AI-powered cover letters</p>
+          </div>
+        </div>
+      </header>
+
+      {/* Main */}
+      <main className="mx-auto max-w-5xl px-6 py-10">
+        <div className="mb-10 text-center">
+          <h2 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+            Craft the perfect <span className="text-accent">cover letter</span>
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
+            Paste your job description, resume details, or any context — and let AI write a
+            compelling, personalized cover letter for you.
+          </p>
+        </div>
+
+        <div className="grid gap-8 lg:grid-cols-2">
+          {/* Input */}
+          <div className="flex flex-col gap-4">
+            <label className="text-sm font-medium text-foreground">Your Details</label>
+            <Textarea
+              placeholder="Paste the job description, your key skills, experience, or any context you'd like included in the cover letter…"
+              className="min-h-[320px] resize-none border-border bg-card font-body text-sm leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-accent"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+            />
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating || !input.trim()}
+              className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 font-medium"
+              size="lg"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Generate Cover Letter
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Output */}
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground">Your Cover Letter</label>
+              {coverLetter && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownload}
+                  className="gap-1.5 text-xs"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download
+                </Button>
+              )}
+            </div>
+            <div
+              ref={outputRef}
+              className="min-h-[320px] rounded-lg border border-border bg-card p-6"
+            >
+              {coverLetter ? (
+                <div className="cover-letter-output text-sm text-foreground">{coverLetter}</div>
+              ) : (
+                <div className="flex h-full min-h-[280px] items-center justify-center">
+                  <p className="text-center text-sm text-muted-foreground/50">
+                    Your AI-generated cover letter will appear here…
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
