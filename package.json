@@ -3,13 +3,11 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "install:all": "npm --prefix frontend install && npm --prefix backend install",
+    "postinstall": "npm --prefix backend install && npm --prefix frontend install",
+    "build": "npm --prefix frontend run build",
     "dev": "concurrently -n FRONTEND,BACKEND -c cyan,magenta \"npm --prefix frontend run dev\" \"npm --prefix backend run dev\"",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:backend": "npm --prefix backend run dev",
-    "build:frontend": "npm --prefix frontend run build",
-    "build:backend": "npm --prefix backend run build",
-    "test:frontend": "npm --prefix frontend run test",
     "test:backend": "npm --prefix backend run test"
   },
   "devDependencies": {
