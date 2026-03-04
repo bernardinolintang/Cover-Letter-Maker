@@ -1,73 +1,131 @@
-# Welcome to your Lovable project
+# CoverCraft
 
-## Project info
+AI-powered cover letter generator that produces professional, block-format cover letters from a candidate profile, job posting, and optional uploaded documents (resume, transcript, portfolio).
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Project Structure
 
-## How can I edit this code?
+```
+├── frontend/          React + Vite + shadcn/ui (Lovable)
+│   ├── src/           Components, pages, hooks, lib
+│   ├── public/        Static assets
+│   ├── supabase/      Edge functions (legacy)
+│   └── ...            Vite, Tailwind, TypeScript configs
+│
+├── backend/           Express + TypeScript API
+│   ├── src/
+│   │   ├── routes/        API endpoints
+│   │   ├── services/      LLM, text extraction, generation
+│   │   ├── validators/    Cover letter quality checks
+│   │   ├── prompts/       System prompts for LLM
+│   │   ├── db/            SQLite database layer
+│   │   └── types/         Zod schemas + TypeScript types
+│   └── tests/         Vitest test suite
+│
+└── README.md
+```
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui |
+| Backend | Express, TypeScript, SQLite (better-sqlite3) |
+| LLM | Groq API (Llama 3.3 70B Versatile) |
+| File Parsing | pdf-parse (PDF), mammoth (DOCX), raw fs (TXT) |
+| Validation | Zod (request schemas), custom validators (format, dashes, bullets) |
+| Testing | Vitest, Supertest |
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js 18+ and npm
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### 1. Backend
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+cd backend
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Create .env with your Groq API key
+# GROQ_API_KEY=gsk_...
+# GROQ_MODEL=llama-3.3-70b-versatile
+# PORT=3001
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The API runs at `http://localhost:3001`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### 2. Frontend
 
-**Use GitHub Codespaces**
+```sh
+cd frontend
+npm install
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# .env should contain VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
+npm run dev
+```
 
-## What technologies are used for this project?
+The frontend runs at `http://localhost:8080`.
 
-This project is built with:
+## API Endpoints
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/documents/upload` | Upload a file (PDF, DOCX, TXT) with automatic text extraction |
+| `GET` | `/api/documents` | List all uploaded documents |
+| `GET` | `/api/documents/:id` | Get document metadata and extracted text |
+| `POST` | `/api/cover-letter` | Generate a cover letter |
+| `GET` | `/api/health` | Health check |
 
-## How can I deploy this project?
+### Cover Letter Request
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+```json
+{
+  "candidate_profile": {
+    "name": "Jane Doe",
+    "location": "Toronto, Ontario",
+    "phone": "(416) 555-0199",
+    "email": "jane@example.com",
+    "linkedin_url": "https://linkedin.com/in/janedoe",
+    "skills": ["Python", "React", "SQL"],
+    "experiences": [
+      {
+        "title": "Product Intern",
+        "company": "TechStart Inc.",
+        "start_date": "May 2024",
+        "end_date": "August 2024",
+        "description": "Led onboarding redesign.",
+        "outcomes": ["Reduced drop-off by 22%"]
+      }
+    ]
+  },
+  "job_posting": "Product Manager at Acme Corp...",
+  "document_ids": ["optional-uploaded-doc-id"]
+}
+```
 
-## Can I connect a custom domain to my Lovable project?
+### Cover Letter Response
 
-Yes, you can!
+Returns `cover_letter_text`, `extracted_fields` (role, company, matched experiences, chosen skills), and `quality_checks` (no dashes, no bullets, format ok, word count ok, availability mentioned).
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Cover Letter Format Rules
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- Strict block layout: header, date, recipient, salutation, 3-4 body paragraphs, sign-off
+- No dashes (hyphens, en-dashes, em-dashes) anywhere
+- No bullet points or numbered lists
+- 280 to 380 words
+- Availability dates mentioned in opening paragraph
+- American spelling, confident and product-oriented tone
+
+## Running Tests
+
+```sh
+cd backend
+npm test        # 36 tests across validators, generation, and upload
+```
+
+## License
+
+Private project.
