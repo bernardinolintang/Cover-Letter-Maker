@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import type { CandidateProfile, Experience, Project, Education, UploadedDocument } from "@/types/profile";
 import { loadProfile, saveProfile } from "@/lib/profile";
 import { loadDocuments, addDocument, removeDocument } from "@/lib/documents";
+import { extractTextFromFile } from "@/lib/fileTextExtractor";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -144,42 +145,31 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("document_type", "resume");
+      toast.info("Extracting text from document...");
+      const text = await extractTextFromFile(file);
 
-      const uploadResp = await fetch(`${API_URL}/api/documents/upload`, {
-        method: "POST",
-        body: formData,
-      });
-      if (!uploadResp.ok) {
-        const err = await uploadResp.json().catch(() => ({}));
-        throw new Error(err.error || "Upload failed");
+      if (!text || text.trim().length < 20) {
+        throw new Error("Could not extract enough text from this file. Try a different format.");
       }
 
-      const uploadData = await uploadResp.json();
-      toast.success(`Uploaded ${uploadData.filename}`);
-
       addDocument({
-        id: uploadData.document_id,
-        filename: uploadData.filename,
+        id: crypto.randomUUID(),
+        filename: file.name,
         document_type: "resume",
         uploadedAt: new Date().toISOString(),
+        extracted_text: text,
       });
       setDocuments(loadDocuments());
 
-      const docResp = await fetch(`${API_URL}/api/documents/${uploadData.document_id}`);
-      if (!docResp.ok) throw new Error("Failed to fetch document text");
-      const docData = await docResp.json();
-
+      toast.info("Analyzing your resume with AI...");
       const extractResp = await fetch(`${API_URL}/api/profile/extract`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: docData.extracted_text }),
+        body: JSON.stringify({ text: text.slice(0, 15000) }),
       });
       if (!extractResp.ok) {
         const err = await extractResp.json().catch(() => ({}));
-        throw new Error(err.error || "Extraction failed");
+        throw new Error(err.error || "AI extraction failed");
       }
 
       const extracted = await extractResp.json();
@@ -253,31 +243,21 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
 
     setIsUploadingDoc(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("document_type", "portfolio");
+      toast.info("Extracting text from document...");
+      const text = await extractTextFromFile(file);
 
-      const resp = await fetch(`${API_URL}/api/documents/upload`, {
-        method: "POST",
-        body: formData,
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || "Upload failed");
-      }
-
-      const data = await resp.json();
       addDocument({
-        id: data.document_id,
-        filename: data.filename,
-        document_type: data.document_type || "portfolio",
+        id: crypto.randomUUID(),
+        filename: file.name,
+        document_type: "portfolio",
         uploadedAt: new Date().toISOString(),
+        extracted_text: text || "",
       });
       setDocuments(loadDocuments());
-      toast.success(`Document "${data.filename}" added to your library`);
+      toast.success(`Document "${file.name}" added to your library`);
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : "Upload failed");
+      toast.error(err instanceof Error ? err.message : "Failed to process document");
     } finally {
       setIsUploadingDoc(false);
       if (docFileInputRef.current) docFileInputRef.current.value = "";

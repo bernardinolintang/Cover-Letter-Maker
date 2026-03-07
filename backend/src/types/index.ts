@@ -98,6 +98,9 @@ export const CoverLetterRequestSchema = z.object({
   recipient_location: z.string().optional(),
   date: z.string().optional(),
   document_ids: z.array(z.string()).optional(),
+  document_texts: z
+    .array(z.object({ filename: z.string(), text: z.string() }))
+    .optional(),
   system_prompt: z.string().optional(),
 });
 

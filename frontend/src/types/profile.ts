@@ -53,6 +53,7 @@ export interface UploadedDocument {
   filename: string;
   document_type: string;
   uploadedAt: string;
+  extracted_text: string;
 }
 
 export interface Collection {
@@ -86,6 +87,7 @@ export interface CoverLetterApiRequest {
   recipient_location?: string;
   date?: string;
   document_ids?: string[];
+  document_texts?: Array<{ filename: string; text: string }>;
   system_prompt?: string;
 }
 

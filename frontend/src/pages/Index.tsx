@@ -145,7 +145,9 @@ const Index = () => {
       const primaryEdu = education[0];
 
       const docs = loadDocuments();
-      const documentIds = docs.map((d) => d.id);
+      const documentTexts = docs
+        .filter((d) => d.extracted_text)
+        .map((d) => ({ filename: d.filename, text: d.extracted_text }));
 
       const body: CoverLetterApiRequest = {
         candidate_profile: {
@@ -172,7 +174,7 @@ const Index = () => {
         ...(instructions.recipient_location && { recipient_location: instructions.recipient_location }),
         ...(instructions.date && { date: instructions.date }),
         ...(instructions.system_prompt && { system_prompt: instructions.system_prompt }),
-        ...(documentIds.length > 0 && { document_ids: documentIds }),
+        ...(documentTexts.length > 0 && { document_texts: documentTexts }),
       };
 
       const resp = await fetch(`${API_URL}/api/cover-letter`, {

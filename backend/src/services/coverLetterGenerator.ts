@@ -29,6 +29,7 @@ export async function generateCoverLetter(
     recipient_location: recipientLocation,
     date: dateOverride,
     document_ids: documentIds,
+    document_texts: documentTexts,
     system_prompt: customSystemPrompt,
   } = req;
 
@@ -37,10 +38,15 @@ export async function generateCoverLetter(
 
   const date = dateOverride || formatDateBlock(new Date());
 
-  // 1. Fetch uploaded documents if any
+  // 1. Build document context from client-provided texts or legacy server-stored docs
   let documents: DocumentRecord[] = [];
   let documentContext = "";
-  if (documentIds?.length) {
+
+  if (documentTexts?.length) {
+    documentContext = documentTexts
+      .map((dt) => `[Document: ${dt.filename}]\n${dt.text}`)
+      .join("\n\n---\n\n");
+  } else if (documentIds?.length) {
     documents = getDocumentsByIds(documentIds);
     documentContext = documents
       .map(
@@ -89,12 +95,16 @@ export async function generateCoverLetter(
   }
 
   // 4. Build extracted fields
+  const usedDocNames = documentTexts?.length
+    ? documentTexts.map((dt) => dt.filename)
+    : documents.map((d) => d.filename);
+
   const extractedFields = buildExtractedFields(
     parsedJob,
     profile,
     recipientName,
     recipientOrg,
-    documents
+    usedDocNames
   );
 
   // 5. Run quality checks
@@ -140,7 +150,7 @@ function buildExtractedFields(
   profile: CoverLetterRequest["candidate_profile"],
   recipientName: string | undefined,
   recipientOrg: string | undefined,
-  documents: DocumentRecord[]
+  usedDocNames: string[]
 ): ExtractedFields {
   const matchedExperiences = profile.experiences
     .slice(0, 3)
@@ -162,7 +172,7 @@ function buildExtractedFields(
     matched_experiences: matchedExperiences,
     chosen_skills:
       chosenSkills.length > 0 ? chosenSkills : profile.skills.slice(0, 5),
-    used_documents: documents.map((d) => d.filename),
+    used_documents: usedDocNames,
   };
 }
 
