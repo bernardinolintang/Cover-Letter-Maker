@@ -13,7 +13,11 @@ const router = Router();
  */
 router.post("/extract", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { text } = req.body;
+    const body =
+      typeof req.body === "string"
+        ? (JSON.parse(req.body) as Record<string, unknown>)
+        : (req.body as Record<string, unknown> | undefined);
+    const text = typeof body?.text === "string" ? body.text : "";
 
     if (!text || typeof text !== "string" || text.trim().length < 20) {
       res.status(400).json({ error: "Provide 'text' field with at least 20 characters of document content." });
