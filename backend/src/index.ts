@@ -16,7 +16,14 @@ app.use("/api/cover-letter", coverLetterRouter);
 app.use("/api/profile", profileRouter);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    vercel: Boolean(process.env.VERCEL),
+    commit: process.env.VERCEL_GIT_COMMIT_SHA || "local",
+    groq_configured: Boolean(process.env.GROQ_API_KEY),
+    groq_model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+  });
 });
 
 app.get("/api/default-prompt", (_req, res) => {
