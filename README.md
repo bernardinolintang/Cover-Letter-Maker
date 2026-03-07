@@ -1,6 +1,6 @@
 # CoverCraft
 
-AI-powered cover letter generator. Paste a job posting, and the AI writes a professional, personalized cover letter using your saved profile.
+AI-powered cover letter generator. Paste a job posting and generate a professional, personalized cover letter using your saved profile and optional supporting documents.
 
 ## Tech Stack
 
@@ -25,11 +25,10 @@ AI-powered cover letter generator. Paste a job posting, and the AI writes a prof
 ```bash
 # 1. Install dependencies
 npm install
-npm run install:all
 
 # 2. Set up environment
-#    Backend: copy backend/.env and add your GROQ_API_KEY
-#    Frontend: frontend/.env already has VITE_API_URL=http://localhost:3001
+#    Backend: set GROQ_API_KEY in backend/.env
+#    Frontend: set VITE_API_URL=http://localhost:3001 in frontend/.env
 
 # 3. Start both servers
 npm run dev
@@ -54,12 +53,20 @@ Vercel will:
 - Route `/api/*` to the serverless function
 - Route everything else to the SPA
 
+### Production Checks
+
+- Open `https://<your-domain>/api/health` after deploy
+- Confirm:
+  - `status: "ok"`
+  - `commit` matches latest Git commit
+  - `groq_configured: true`
+
 ## API Endpoints
 
 | Method | Path                   | Purpose                                |
 |--------|------------------------|----------------------------------------|
 | POST   | /api/cover-letter      | Generate cover letter                  |
-| POST   | /api/documents/upload  | Upload file (PDF/DOCX/TXT)             |
+| POST   | /api/documents/upload  | Upload file (legacy endpoint)          |
 | GET    | /api/documents         | List uploaded documents                |
 | GET    | /api/documents/:id     | Get document with extracted text       |
 | POST   | /api/profile/extract   | Extract profile from document text     |
@@ -69,8 +76,8 @@ Vercel will:
 ## Features
 
 - **Profile Editor** — save your personal info, education, skills, experiences, projects
-- **Resume Auto-fill** — upload a resume to auto-populate your profile
-- **Document Library** — upload portfolios, transcripts, etc. for AI reference
+- **Resume Auto-fill** — client-side text extraction (PDF/DOCX/TXT), then AI extraction
+- **Document Library** — client-side extracted document text saved locally for AI reference
 - **Custom AI Prompt** — view and edit the system prompt that controls generation
 - **Collections** — organize generated letters into collections
 - **Dark Mode** — toggle between light and dark themes
