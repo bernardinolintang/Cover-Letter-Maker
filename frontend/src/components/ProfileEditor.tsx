@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, KeyboardEvent } from "react";
+import { useState, useEffect, useRef, KeyboardEvent, useCallback } from "react";
 import {
   User, Plus, X, Briefcase, GraduationCap, FolderOpen, Wrench,
-  Save, Upload, Loader2, FileUp, Trash2, FileText,
+  Save, Upload, Loader2, FileUp, Trash2, FileText, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,13 +13,47 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import type { CandidateProfile, Experience, Project, Education, UploadedDocument } from "@/types/profile";
-import { loadProfile, saveProfile } from "@/lib/profile";
+import { loadProfile, saveProfile, DEFAULT_PROFILE } from "@/lib/profile";
 import { loadDocuments, addDocument, removeDocument } from "@/lib/documents";
 import { extractTextFromFile } from "@/lib/fileTextExtractor";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
+
+const SKILL_SUGGESTIONS = [
+  "Python", "JavaScript", "TypeScript", "Java", "C++", "C#", "C", "Go", "Rust", "Ruby",
+  "PHP", "Swift", "Kotlin", "Scala", "R", "MATLAB", "SQL", "HTML", "CSS", "Sass",
+  "React", "Next.js", "Vue.js", "Angular", "Svelte", "Node.js", "Express.js", "FastAPI",
+  "Flask", "Django", "Spring Boot", "Ruby on Rails", "ASP.NET", "Laravel",
+  "TailwindCSS", "Bootstrap", "Material UI", "Chakra UI", "shadcn/ui",
+  "PostgreSQL", "MySQL", "MongoDB", "Redis", "SQLite", "DynamoDB", "Snowflake",
+  "Firebase", "Supabase", "AWS", "Azure", "GCP", "Docker", "Kubernetes", "Terraform",
+  "Git", "GitHub Actions", "CI/CD", "Jenkins", "Linux", "Nginx",
+  "TensorFlow", "PyTorch", "Scikit-learn", "Pandas", "NumPy", "OpenAI API",
+  "LLMs", "Prompt Engineering", "RAG", "LangChain", "Hugging Face",
+  "GraphQL", "REST API", "gRPC", "WebSockets", "OAuth", "JWT",
+  "Figma", "Adobe XD", "Photoshop", "Illustrator", "Blender",
+  "Jira", "Confluence", "Notion", "Slack", "Trello",
+  "Agile", "Scrum", "Kanban", "Product Management", "Project Management",
+  "Data Analysis", "Data Engineering", "Machine Learning", "Deep Learning",
+  "Natural Language Processing", "Computer Vision", "Data Visualization",
+  "Power BI", "Tableau", "Looker", "Excel", "Google Sheets",
+  "Selenium", "Cypress", "Jest", "Vitest", "Pytest", "JUnit",
+  "Postman", "Swagger", "Webpack", "Vite", "Babel", "ESLint",
+  "Apache Spark", "Hadoop", "Kafka", "Airflow", "dbt",
+  "Solidity", "Web3", "Blockchain",
+  "Unity", "Unreal Engine", "Game Development",
+  "UI/UX Design", "Wireframing", "Prototyping", "User Research",
+  "Technical Writing", "Public Speaking", "Leadership", "Teamwork",
+  "Communication", "Problem Solving", "Critical Thinking", "Creativity",
+  "Anaconda", "Seaborn", "Matplotlib",
+];
 
 interface ProfileEditorProps {
   open: boolean;
@@ -30,11 +64,15 @@ interface ProfileEditorProps {
 export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEditorProps) {
   const [profile, setProfile] = useState<CandidateProfile>(loadProfile);
   const [skillInput, setSkillInput] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [documents, setDocuments] = useState<UploadedDocument[]>(loadDocuments);
+  const [pendingDeleteId, setPendingDeleteId] = useState<{ type: string; id: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docFileInputRef = useRef<HTMLInputElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const skillInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -47,13 +85,32 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
     setProfile((p) => ({ ...p, [key]: value }));
   };
 
+  const scrollToNewEntry = useCallback(() => {
+    requestAnimationFrame(() => {
+      const viewport = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]");
+      if (viewport) {
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
+      }
+    });
+  }, []);
+
   // ── Skills ───────────────────────────────────
 
-  const addSkill = () => {
-    const skill = skillInput.trim();
+  const filteredSuggestions = skillInput.trim().length >= 2
+    ? SKILL_SUGGESTIONS.filter(
+        (s) =>
+          s.toLowerCase().includes(skillInput.toLowerCase()) &&
+          !profile.skills.includes(s)
+      ).slice(0, 8)
+    : [];
+
+  const addSkill = (skillName?: string) => {
+    const skill = (skillName || skillInput).trim();
     if (!skill || profile.skills.includes(skill)) return;
     update("skills", [...profile.skills, skill]);
     setSkillInput("");
+    setShowSuggestions(false);
+    skillInputRef.current?.focus();
   };
 
   const removeSkill = (skill: string) => {
@@ -61,7 +118,17 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
   };
 
   const handleSkillKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") { e.preventDefault(); addSkill(); }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (filteredSuggestions.length > 0) {
+        addSkill(filteredSuggestions[0]);
+      } else {
+        addSkill();
+      }
+    }
+    if (e.key === "Escape") {
+      setShowSuggestions(false);
+    }
   };
 
   // ── Education ──────────────────────────────────
@@ -74,6 +141,8 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
       degree_year: "",
     };
     update("education", [...profile.education, edu]);
+    scrollToNewEntry();
+    toast.info("New education entry added below.");
   };
 
   const updateEducation = (id: string, field: keyof Education, value: string) => {
@@ -85,6 +154,7 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
 
   const removeEducation = (id: string) => {
     update("education", profile.education.filter((e) => e.id !== id));
+    toast.success("Education entry removed.");
   };
 
   // ── Experiences ──────────────────────────────
@@ -100,6 +170,8 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
       outcomes: [],
     };
     update("experiences", [...profile.experiences, exp]);
+    scrollToNewEntry();
+    toast.info("New experience entry added below.");
   };
 
   const updateExperience = (id: string, field: keyof Experience, value: string | string[]) => {
@@ -111,6 +183,7 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
 
   const removeExperience = (id: string) => {
     update("experiences", profile.experiences.filter((e) => e.id !== id));
+    toast.success("Experience entry removed.");
   };
 
   // ── Projects ─────────────────────────────────
@@ -124,6 +197,8 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
       outcomes: [],
     };
     update("projects", [...profile.projects, proj]);
+    scrollToNewEntry();
+    toast.info("New project entry added below.");
   };
 
   const updateProject = (id: string, field: keyof Project, value: string | string[]) => {
@@ -135,6 +210,31 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
 
   const removeProject = (id: string) => {
     update("projects", profile.projects.filter((p) => p.id !== id));
+    toast.success("Project entry removed.");
+  };
+
+  // ── Confirm delete ──────────────────────────
+
+  const confirmDelete = () => {
+    if (!pendingDeleteId) return;
+    const { type, id } = pendingDeleteId;
+    if (type === "education") removeEducation(id);
+    else if (type === "experience") removeExperience(id);
+    else if (type === "project") removeProject(id);
+    else if (type === "document") {
+      removeDocument(id);
+      setDocuments(loadDocuments());
+      toast.success("Document removed from library.");
+    }
+    setPendingDeleteId(null);
+  };
+
+  // ── Reset Profile ───────────────────────────
+
+  const handleResetProfile = () => {
+    setProfile({ ...DEFAULT_PROFILE });
+    saveProfile({ ...DEFAULT_PROFILE });
+    toast.success("Profile has been reset to blank.");
   };
 
   // ── Resume Upload & Auto-fill ─────────────────
@@ -264,12 +364,6 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
     }
   };
 
-  const handleRemoveDoc = (id: string) => {
-    removeDocument(id);
-    setDocuments(loadDocuments());
-    toast.success("Document removed from library");
-  };
-
   // ── Save ─────────────────────────────────────
 
   const handleSave = () => {
@@ -287,10 +381,37 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col">
         <SheetHeader className="px-6 pt-6 pb-4">
-          <SheetTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Candidate Profile
-          </SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Candidate Profile
+            </SheetTitle>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reset
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset entire profile?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all your profile data including personal info, education, skills, experiences, and projects. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleResetProfile}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Yes, reset everything
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
           <SheetDescription>
             Your personal details, skills, and experience. Saved locally and used for every cover letter.
           </SheetDescription>
@@ -327,7 +448,7 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
           </div>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 px-6">
+        <ScrollArea className="flex-1 px-6" ref={scrollAreaRef}>
           <div className="space-y-6 pb-6">
             {/* ── Personal Info ── */}
             <section>
@@ -384,8 +505,9 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
                 {profile.education.map((edu) => (
                   <div key={edu.id} className="rounded-lg border border-border p-3 space-y-2 relative">
                     <button
-                      onClick={() => removeEducation(edu.id)}
-                      className="absolute top-2 right-2 rounded-full p-1 hover:bg-muted text-muted-foreground"
+                      onClick={() => setPendingDeleteId({ type: "education", id: edu.id })}
+                      className="absolute top-2 right-2 rounded-full p-1 hover:bg-destructive/10 text-destructive"
+                      title="Remove education"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -419,23 +541,41 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
                 <Wrench className="h-4 w-4 text-muted-foreground" />
                 Skills
               </h3>
-              <div className="flex gap-2 mb-3">
-                <Input
-                  value={skillInput}
-                  onChange={(e) => setSkillInput(e.target.value)}
-                  onKeyDown={handleSkillKeyDown}
-                  placeholder="Type a skill and press Enter"
-                  className="flex-1"
-                />
-                <Button variant="outline" size="sm" onClick={addSkill} className="shrink-0">
-                  <Plus className="h-4 w-4" />
-                </Button>
+              <div className="relative mb-3">
+                <div className="flex gap-2">
+                  <Input
+                    ref={skillInputRef}
+                    value={skillInput}
+                    onChange={(e) => { setSkillInput(e.target.value); setShowSuggestions(true); }}
+                    onKeyDown={handleSkillKeyDown}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    placeholder="Type a skill and press Enter"
+                    className="flex-1"
+                  />
+                  <Button variant="outline" size="sm" onClick={() => addSkill()} className="shrink-0">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {showSuggestions && filteredSuggestions.length > 0 && (
+                  <div className="absolute z-50 top-full left-0 right-10 mt-1 bg-popover border border-border rounded-md shadow-md max-h-48 overflow-y-auto">
+                    {filteredSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                        onMouseDown={(e) => { e.preventDefault(); addSkill(suggestion); }}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 {profile.skills.map((skill) => (
                   <Badge key={skill} variant="secondary" className="gap-1 pr-1">
                     {skill}
-                    <button onClick={() => removeSkill(skill)} className="ml-1 rounded-full p-0.5 hover:bg-muted">
+                    <button onClick={() => removeSkill(skill)} className="ml-1 rounded-full p-0.5 hover:bg-destructive/20 text-destructive">
                       <X className="h-3 w-3" />
                     </button>
                   </Badge>
@@ -463,8 +603,9 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
                 {profile.experiences.map((exp) => (
                   <div key={exp.id} className="rounded-lg border border-border p-4 space-y-3 relative">
                     <button
-                      onClick={() => removeExperience(exp.id)}
-                      className="absolute top-3 right-3 rounded-full p-1 hover:bg-muted text-muted-foreground"
+                      onClick={() => setPendingDeleteId({ type: "experience", id: exp.id })}
+                      className="absolute top-3 right-3 rounded-full p-1 hover:bg-destructive/10 text-destructive"
+                      title="Remove experience"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -529,8 +670,9 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
                 {profile.projects.map((proj) => (
                   <div key={proj.id} className="rounded-lg border border-border p-4 space-y-3 relative">
                     <button
-                      onClick={() => removeProject(proj.id)}
-                      className="absolute top-3 right-3 rounded-full p-1 hover:bg-muted text-muted-foreground"
+                      onClick={() => setPendingDeleteId({ type: "project", id: proj.id })}
+                      className="absolute top-3 right-3 rounded-full p-1 hover:bg-destructive/10 text-destructive"
+                      title="Remove project"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -626,10 +768,10 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 shrink-0"
-                      onClick={() => handleRemoveDoc(doc.id)}
+                      className="h-7 w-7 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setPendingDeleteId({ type: "document", id: doc.id })}
                     >
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 ))}
@@ -649,6 +791,27 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
             Save Profile
           </Button>
         </div>
+
+        {/* Shared delete confirmation dialog */}
+        <AlertDialog open={!!pendingDeleteId} onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove this {pendingDeleteId?.type}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove this entry. Once deleted, it cannot be recovered.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Yes, delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SheetContent>
     </Sheet>
   );
