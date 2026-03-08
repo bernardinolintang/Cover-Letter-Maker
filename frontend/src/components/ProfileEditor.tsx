@@ -71,7 +71,6 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
   const [pendingDeleteId, setPendingDeleteId] = useState<{ type: string; id: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docFileInputRef = useRef<HTMLInputElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const skillInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -85,12 +84,13 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
     setProfile((p) => ({ ...p, [key]: value }));
   };
 
-  const scrollToNewEntry = useCallback(() => {
+  const scrollToEntry = useCallback((entryId: string) => {
+    // Wait for React to render the newly-added card before scrolling.
     requestAnimationFrame(() => {
-      const viewport = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]");
-      if (viewport) {
-        viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
-      }
+      requestAnimationFrame(() => {
+        const entry = document.getElementById(entryId);
+        entry?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
     });
   }, []);
 
@@ -141,7 +141,7 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
       degree_year: "",
     };
     update("education", [...profile.education, edu]);
-    scrollToNewEntry();
+    scrollToEntry(`education-${edu.id}`);
     toast.info("New education entry added below.");
   };
 
@@ -170,7 +170,7 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
       outcomes: [],
     };
     update("experiences", [...profile.experiences, exp]);
-    scrollToNewEntry();
+    scrollToEntry(`experience-${exp.id}`);
     toast.info("New experience entry added below.");
   };
 
@@ -197,7 +197,7 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
       outcomes: [],
     };
     update("projects", [...profile.projects, proj]);
-    scrollToNewEntry();
+    scrollToEntry(`project-${proj.id}`);
     toast.info("New project entry added below.");
   };
 
@@ -448,7 +448,7 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
           </div>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 px-6" ref={scrollAreaRef}>
+        <ScrollArea className="flex-1 px-6">
           <div className="space-y-6 pb-6">
             {/* ── Personal Info ── */}
             <section>
@@ -503,7 +503,7 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
               </div>
               <div className="space-y-3">
                 {profile.education.map((edu) => (
-                  <div key={edu.id} className="rounded-lg border border-border p-3 space-y-2 relative">
+                  <div id={`education-${edu.id}`} key={edu.id} className="rounded-lg border border-border p-3 space-y-2 relative">
                     <button
                       onClick={() => setPendingDeleteId({ type: "education", id: edu.id })}
                       className="absolute top-2 right-2 rounded-full p-1 hover:bg-destructive/10 text-destructive"
@@ -601,7 +601,7 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
               </div>
               <div className="space-y-4">
                 {profile.experiences.map((exp) => (
-                  <div key={exp.id} className="rounded-lg border border-border p-4 space-y-3 relative">
+                  <div id={`experience-${exp.id}`} key={exp.id} className="rounded-lg border border-border p-4 space-y-3 relative">
                     <button
                       onClick={() => setPendingDeleteId({ type: "experience", id: exp.id })}
                       className="absolute top-3 right-3 rounded-full p-1 hover:bg-destructive/10 text-destructive"
@@ -668,7 +668,7 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
               </div>
               <div className="space-y-4">
                 {profile.projects.map((proj) => (
-                  <div key={proj.id} className="rounded-lg border border-border p-4 space-y-3 relative">
+                  <div id={`project-${proj.id}`} key={proj.id} className="rounded-lg border border-border p-4 space-y-3 relative">
                     <button
                       onClick={() => setPendingDeleteId({ type: "project", id: proj.id })}
                       className="absolute top-3 right-3 rounded-full p-1 hover:bg-destructive/10 text-destructive"
