@@ -405,7 +405,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background transition-colors">
+    <div className="h-screen bg-background transition-colors overflow-hidden">
       {/* Header */}
       <header className="border-b border-border/50 px-6 py-5">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
@@ -476,12 +476,12 @@ const Index = () => {
       </header>
 
       {/* Main */}
-      <main className="mx-auto max-w-7xl px-6 py-10">
-        <div className="mb-10 text-center">
-          <h2 className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+      <main className="mx-auto flex h-[calc(100vh-81px)] max-w-7xl flex-col px-6 py-4">
+        <div className="mb-4 text-center">
+          <h2 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Craft the perfect <span className="text-accent">cover letter</span>
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
+          <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
             Set up your profile, paste a job posting, and let AI write a
             compelling, personalized cover letter tailored to you.
           </p>
@@ -489,7 +489,7 @@ const Index = () => {
           {!profileReady && (
             <button
               onClick={() => setShowProfile(true)}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 hover:bg-amber-100 transition-colors dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-900/50"
+              className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-1.5 text-xs text-amber-800 hover:bg-amber-100 transition-colors dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-900/50"
             >
               <AlertCircle className="h-4 w-4" />
               Complete your profile to get started
@@ -497,14 +497,14 @@ const Index = () => {
           )}
         </div>
 
-        <div className="mb-8 grid gap-3 md:grid-cols-4">
+        <div className="mb-4 grid gap-2 md:grid-cols-4">
           <StepCard title="Step 1" subtitle="Upload Resume" done={profile.skills.length > 0 || profile.experiences.length > 0} />
           <StepCard title="Step 2" subtitle="Paste or Import Job" done={input.trim().length > 0} />
           <StepCard title="Step 3" subtitle="Customize Instructions" done={Boolean(instructions.company_context || instructions.tone || instructions.recipient_org)} />
           <StepCard title="Step 4" subtitle="Generate Letter" done={Boolean(coverLetter)} />
         </div>
 
-        <div className={`grid gap-8 ${showHistory ? "lg:grid-cols-[300px_1fr_1fr]" : "lg:grid-cols-2"}`}>
+        <div className={`grid flex-1 min-h-0 gap-5 ${showHistory ? "lg:grid-cols-[300px_1fr_1fr]" : "lg:grid-cols-2"}`}>
           {/* History sidebar */}
           {showHistory && (
             <div className="rounded-xl border border-border/50 bg-card p-4">
@@ -523,7 +523,7 @@ const Index = () => {
           )}
 
           {/* Input */}
-          <div className="flex flex-col gap-4">
+          <div className="flex min-h-0 flex-col gap-3">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-foreground">Job Posting</label>
               <div className="flex items-center gap-1.5">
@@ -586,12 +586,14 @@ const Index = () => {
                 </Button>
               </div>
             </div>
-            <Textarea
-              placeholder="Paste the full job posting here. The AI will extract the role, company, requirements, and tailor your cover letter to match your profile."
-              className="min-h-[320px] resize-none border-border bg-card font-body text-sm leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-accent"
-              value={input}
-              onChange={(e) => setJobPostingInput(e.target.value)}
-            />
+            <div className="flex-1 min-h-0">
+              <Textarea
+                placeholder="Paste the full job posting here. The AI will extract the role, company, requirements, and tailor your cover letter to match your profile."
+                className="h-full min-h-0 resize-none border-border bg-card font-body text-sm leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-accent"
+                value={input}
+                onChange={(e) => setJobPostingInput(e.target.value)}
+              />
+            </div>
 
             {jobInsights && (
               <div className="rounded-lg border border-border/60 bg-card p-3 space-y-3">
@@ -644,7 +646,7 @@ const Index = () => {
           </div>
 
           {/* Output */}
-          <div className="flex flex-col gap-4">
+          <div className="flex min-h-0 flex-col gap-3">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-foreground">Your Cover Letter</label>
               {coverLetter && (
@@ -699,7 +701,7 @@ const Index = () => {
               </div>
             )}
 
-            <div className="min-h-[320px] rounded-lg border border-border bg-card p-6 relative">
+            <div className="relative flex-1 min-h-0 rounded-lg border border-border bg-card p-4 sm:p-6">
               {coverLetter ? (
                 <>
                   {/* Edit toggle */}
@@ -731,14 +733,20 @@ const Index = () => {
                     <Textarea
                       value={coverLetter}
                       onChange={(e) => setCoverLetter(e.target.value)}
-                      className="min-h-[300px] resize-y border-0 p-0 shadow-none focus-visible:ring-0 font-body text-sm leading-relaxed"
+                      className="h-full min-h-0 resize-none border-0 p-0 shadow-none focus-visible:ring-0 font-body text-sm leading-relaxed overflow-y-auto [&::-webkit-scrollbar]:hidden"
+                      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
                     />
                   ) : (
-                    <div className="cover-letter-output text-sm text-foreground pr-16">{coverLetter}</div>
+                    <div
+                      className="cover-letter-output h-full overflow-y-auto pr-16 text-sm text-foreground [&::-webkit-scrollbar]:hidden"
+                      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                    >
+                      {coverLetter}
+                    </div>
                   )}
                 </>
               ) : (
-                <div className="flex h-full min-h-[280px] items-center justify-center">
+                <div className="flex h-full items-center justify-center">
                   <p className="text-center text-sm text-muted-foreground/50">
                     Your AI-generated cover letter will appear here...
                   </p>
