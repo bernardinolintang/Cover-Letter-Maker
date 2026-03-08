@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { SavedCoverLetter, updateHistoryItem } from "@/lib/history";
-import { loadCollections, createCollection } from "@/lib/collections";
+import { SavedCoverLetter, updateHistoryItem, unassignCollectionFromHistory } from "@/lib/history";
+import { loadCollections, createCollectionWithColor, updateCollection, deleteCollection } from "@/lib/collections";
 import type { Collection } from "@/types/profile";
-import { Clock, Trash2, FileText, FolderPlus, Filter, Plus, X } from "lucide-react";
+import { Clock, Trash2, FileText, FolderPlus, Filter, Plus, X, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,16 +26,54 @@ export function HistoryPanel({ history, onSelect, onDelete, activeId, onHistoryU
   const [collections, setCollections] = useState<Collection[]>(loadCollections);
   const [filterCollectionId, setFilterCollectionId] = useState<string | null>(null);
   const [newCollectionName, setNewCollectionName] = useState("");
+  const [newCollectionColor, setNewCollectionColor] = useState("#3b82f6");
+  const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
+  const [editingCollectionName, setEditingCollectionName] = useState("");
+  const [editingCollectionColor, setEditingCollectionColor] = useState("#3b82f6");
 
   const refreshCollections = () => setCollections(loadCollections());
 
   const handleCreateCollection = () => {
     const name = newCollectionName.trim();
     if (!name) return;
-    createCollection(name);
+    createCollectionWithColor(name, newCollectionColor);
     refreshCollections();
     setNewCollectionName("");
+    setNewCollectionColor("#3b82f6");
     toast.success(`Collection "${name}" created`);
+  };
+
+  const startEditCollection = (collection: Collection) => {
+    setEditingCollectionId(collection.id);
+    setEditingCollectionName(collection.name);
+    setEditingCollectionColor(collection.color);
+  };
+
+  const saveEditCollection = () => {
+    if (!editingCollectionId || !editingCollectionName.trim()) return;
+    updateCollection(editingCollectionId, {
+      name: editingCollectionName.trim(),
+      color: editingCollectionColor,
+    });
+    refreshCollections();
+    setEditingCollectionId(null);
+    toast.success("Collection updated");
+  };
+
+  const handleDeleteCollection = (collection: Collection) => {
+    const confirmed = window.confirm(
+      `Delete collection "${collection.name}"?\n\nLetters in this collection will not be deleted. They will become unassigned.`
+    );
+    if (!confirmed) return;
+
+    unassignCollectionFromHistory(collection.id);
+    deleteCollection(collection.id);
+    if (filterCollectionId === collection.id) {
+      setFilterCollectionId(null);
+    }
+    refreshCollections();
+    onHistoryUpdated();
+    toast.success(`Collection "${collection.name}" deleted. Letters were kept and unassigned.`);
   };
 
   const handleAssignCollection = (itemId: string, collectionId: string | undefined) => {
@@ -95,23 +133,101 @@ export function HistoryPanel({ history, onSelect, onDelete, activeId, onHistoryU
                 {c.name}
               </button>
             ))}
-            <div className="mt-2 flex items-center gap-1 border-t border-border pt-2">
-              <Input
-                value={newCollectionName}
-                onChange={(e) => setNewCollectionName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateCollection()}
-                placeholder="New collection..."
-                className="h-7 text-xs"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 shrink-0"
-                onClick={handleCreateCollection}
-                disabled={!newCollectionName.trim()}
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
+            <div className="mt-2 space-y-2 border-t border-border pt-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={newCollectionColor}
+                  onChange={(e) => setNewCollectionColor(e.target.value)}
+                  className="h-7 w-7 cursor-pointer rounded border border-border bg-transparent p-0"
+                  title="Pick collection color"
+                />
+                <Input
+                  value={newCollectionName}
+                  onChange={(e) => setNewCollectionName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCreateCollection()}
+                  placeholder="New collection..."
+                  className="h-7 text-xs"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  onClick={handleCreateCollection}
+                  disabled={!newCollectionName.trim()}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+              {collections.length > 0 && (
+                <div className="space-y-1">
+                  {collections.map((c) => (
+                    <div key={c.id} className="rounded border border-border/60 p-1.5">
+                      {editingCollectionId === c.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={editingCollectionColor}
+                            onChange={(e) => setEditingCollectionColor(e.target.value)}
+                            className="h-6 w-6 cursor-pointer rounded border border-border bg-transparent p-0"
+                          />
+                          <Input
+                            value={editingCollectionName}
+                            onChange={(e) => setEditingCollectionName(e.target.value)}
+                            className="h-6 text-xs"
+                            onKeyDown={(e) => e.key === "Enter" && saveEditCollection()}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={saveEditCollection}
+                            title="Save"
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => setEditingCollectionId(null)}
+                            title="Cancel"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                            <span className="truncate text-xs">{c.name}</span>
+                          </div>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => startEditCollection(c)}
+                              title="Rename or recolor"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteCollection(c)}
+                              title="Delete collection"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </PopoverContent>
         </Popover>

@@ -29,6 +29,29 @@ export function createCollection(name: string): Collection {
   return collection;
 }
 
+export function createCollectionWithColor(name: string, color: string): Collection {
+  const collections = loadCollections();
+  const collection: Collection = {
+    id: crypto.randomUUID(),
+    name,
+    color: color || PALETTE[collections.length % PALETTE.length],
+  };
+  collections.push(collection);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(collections));
+  return collection;
+}
+
+export function updateCollection(
+  id: string,
+  updates: Partial<Pick<Collection, "name" | "color">>
+): void {
+  const collections = loadCollections();
+  const idx = collections.findIndex((c) => c.id === id);
+  if (idx < 0) return;
+  collections[idx] = { ...collections[idx], ...updates };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(collections));
+}
+
 export function deleteCollection(id: string): void {
   const collections = loadCollections().filter((c) => c.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(collections));

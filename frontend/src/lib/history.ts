@@ -43,3 +43,10 @@ export function deleteFromHistory(id: string) {
   const history = loadHistory().filter((h) => h.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
 }
+
+export function unassignCollectionFromHistory(collectionId: string): void {
+  const history = loadHistory().map((item) =>
+    item.collectionId === collectionId ? { ...item, collectionId: undefined } : item
+  );
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
