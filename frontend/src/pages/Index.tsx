@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { ProfileEditor } from "@/components/ProfileEditor";
@@ -733,13 +734,11 @@ const Index = () => {
                     <Textarea
                       value={coverLetter}
                       onChange={(e) => setCoverLetter(e.target.value)}
-                      className="h-full min-h-0 resize-none border-0 p-0 shadow-none focus-visible:ring-0 font-body text-sm leading-relaxed overflow-y-auto [&::-webkit-scrollbar]:hidden"
-                      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                      className="h-full min-h-0 resize-none border-0 p-0 shadow-none focus-visible:ring-0 font-body text-sm leading-relaxed overflow-y-auto"
                     />
                   ) : (
                     <div
-                      className="cover-letter-output h-full overflow-y-auto pr-16 text-sm text-foreground [&::-webkit-scrollbar]:hidden"
-                      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                      className="cover-letter-output h-full overflow-y-auto pr-16 text-sm text-foreground"
                     >
                       {coverLetter}
                     </div>
@@ -757,11 +756,31 @@ const Index = () => {
             {/* Quality Checks */}
             {qualityChecks && (
               <div className="flex flex-wrap gap-2">
-                <QualityBadge label="No Dashes" pass={qualityChecks.no_dashes} />
-                <QualityBadge label="No Bullets" pass={qualityChecks.no_bullets} />
-                <QualityBadge label="Format OK" pass={qualityChecks.format_ok} />
-                <QualityBadge label="Word Count" pass={qualityChecks.length_ok} />
-                <QualityBadge label="Availability" pass={qualityChecks.availability_mentioned} />
+                <QualityBadge
+                  label="No Dashes"
+                  pass={qualityChecks.no_dashes}
+                  description="Checks that the letter has no dash characters."
+                />
+                <QualityBadge
+                  label="No Bullets"
+                  pass={qualityChecks.no_bullets}
+                  description="Checks that the letter contains paragraphs only, with no bullets or numbered lists."
+                />
+                <QualityBadge
+                  label="Format OK"
+                  pass={qualityChecks.format_ok}
+                  description="Checks header, recipient block, salutation, paragraphs, and sign-off structure."
+                />
+                <QualityBadge
+                  label="Word Count"
+                  pass={qualityChecks.length_ok}
+                  description="Checks that letter length is between 280 and 380 words."
+                />
+                <QualityBadge
+                  label="Availability"
+                  pass={qualityChecks.availability_mentioned}
+                  description="Checks that your availability is explicitly mentioned in the opening paragraph."
+                />
               </div>
             )}
           </div>
@@ -783,19 +802,34 @@ const Index = () => {
   );
 };
 
-function QualityBadge({ label, pass }: { label: string; pass: boolean }) {
+function QualityBadge({
+  label,
+  pass,
+  description,
+}: {
+  label: string;
+  pass: boolean;
+  description: string;
+}) {
   return (
-    <Badge
-      variant={pass ? "secondary" : "destructive"}
-      className="gap-1 text-xs"
-    >
-      {pass ? (
-        <CheckCircle2 className="h-3 w-3" />
-      ) : (
-        <AlertCircle className="h-3 w-3" />
-      )}
-      {label}
-    </Badge>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge
+          variant={pass ? "secondary" : "destructive"}
+          className="gap-1 text-xs cursor-help"
+        >
+          {pass ? (
+            <CheckCircle2 className="h-3 w-3" />
+          ) : (
+            <AlertCircle className="h-3 w-3" />
+          )}
+          {label}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs text-xs">
+        {description}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
