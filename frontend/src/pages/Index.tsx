@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   Download, Sparkles, Loader2, History, User, Settings,
   AlertCircle, CheckCircle2, Pencil, Undo2, Redo2, Eraser,
-  Sun, Moon, Copy, FileDown, Edit3, Check,
+  Sun, Moon, Copy, FileDown, Edit3, Check, Link2, Wand2,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,14 @@ const LOADING_MESSAGES = [
   "Polishing final details...",
 ];
 
+interface ParsedJobInsights {
+  company_name: string;
+  role_title: string;
+  location: string;
+  requirements: string[];
+  keywords: string[];
+}
+
 function buildDefaultTitle(profileName: string, roleTitle?: string, company?: string): string {
   const firstName = profileName.split(" ")[0] || "My";
   if (roleTitle && company) {
@@ -46,6 +54,10 @@ const Index = () => {
   const [mounted, setMounted] = useState(false);
 
   const [input, setInput] = useState("");
+  const [jobUrl, setJobUrl] = useState("");
+  const [isImportingJob, setIsImportingJob] = useState(false);
+  const [isResearchingCompany, setIsResearchingCompany] = useState(false);
+  const [jobInsights, setJobInsights] = useState<ParsedJobInsights | null>(null);
   const [inputHistory, setInputHistory] = useState<string[]>([""]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [coverLetter, setCoverLetter] = useState("");
@@ -70,6 +82,36 @@ const Index = () => {
     setProfile(loadProfile());
     setInstructions(loadInstructions());
   }, []);
+
+  // Auto-parse job posting to highlight key requirements/keywords.
+  useEffect(() => {
+    if (input.trim().length < 120) {
+      setJobInsights(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const resp = await fetch(`${API_URL}/api/job/parse`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ job_posting: input }),
+          signal: controller.signal,
+        });
+        if (!resp.ok) return;
+        const parsed = await resp.json();
+        setJobInsights(parsed);
+      } catch {
+        // silent on typing
+      }
+    }, 900);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [input]);
 
   // Cycle loading messages while generating
   useEffect(() => {
@@ -114,6 +156,75 @@ const Index = () => {
   const handleClearInput = () => {
     if (!input.trim()) return;
     setJobPostingInput("");
+  };
+
+  const handleImportFromJobLink = async () => {
+    if (!jobUrl.trim()) {
+      toast.error("Paste a job link first.");
+      return;
+    }
+    setIsImportingJob(true);
+    try {
+      const resp = await fetch(`${API_URL}/api/job/fetch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: jobUrl.trim() }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || "Failed to import job posting from URL");
+      }
+      setJobPostingInput(data.text || "");
+      toast.success("Job posting imported from link.");
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "Failed to import job posting");
+    } finally {
+      setIsImportingJob(false);
+    }
+  };
+
+  const handleResearchCompany = async () => {
+    if (!input.trim()) {
+      toast.error("Add a job posting first.");
+      return;
+    }
+    setIsResearchingCompany(true);
+    try {
+      const resp = await fetch(`${API_URL}/api/job/research`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: input,
+          company_name: jobInsights?.company_name || instructions.recipient_org || "",
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || "Failed to research company context");
+      }
+
+      const contextParts = [
+        data.company_summary ? `Company summary: ${data.company_summary}` : "",
+        data.mission ? `Mission: ${data.mission}` : "",
+        Array.isArray(data.values) && data.values.length
+          ? `Values: ${data.values.join(", ")}`
+          : "",
+        Array.isArray(data.recent_news) && data.recent_news.length
+          ? `Recent news: ${data.recent_news.join("; ")}`
+          : "",
+      ].filter(Boolean);
+
+      const mergedContext = contextParts.join("\n");
+      const next = { ...instructions, company_context: mergedContext };
+      setInstructions(next);
+      toast.success("Company context added to instructions.");
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "Company research failed");
+    } finally {
+      setIsResearchingCompany(false);
+    }
   };
 
   const handleGenerate = async () => {
@@ -167,6 +278,8 @@ const Index = () => {
         } as CoverLetterApiRequest["candidate_profile"],
         job_posting: input,
         ...(instructions.company_context && { company_context: instructions.company_context }),
+        ...(instructions.tone && { tone: instructions.tone }),
+        ...(jobInsights?.keywords?.length && { priority_keywords: jobInsights.keywords.slice(0, 10) }),
         ...(instructions.availability && { availability: instructions.availability }),
         ...(instructions.recipient_name && { recipient_name: instructions.recipient_name }),
         ...(instructions.recipient_title && { recipient_title: instructions.recipient_title }),
@@ -384,6 +497,13 @@ const Index = () => {
           )}
         </div>
 
+        <div className="mb-8 grid gap-3 md:grid-cols-4">
+          <StepCard title="Step 1" subtitle="Upload Resume" done={profile.skills.length > 0 || profile.experiences.length > 0} />
+          <StepCard title="Step 2" subtitle="Paste or Import Job" done={input.trim().length > 0} />
+          <StepCard title="Step 3" subtitle="Customize Instructions" done={Boolean(instructions.company_context || instructions.tone || instructions.recipient_org)} />
+          <StepCard title="Step 4" subtitle="Generate Letter" done={Boolean(coverLetter)} />
+        </div>
+
         <div className={`grid gap-8 ${showHistory ? "lg:grid-cols-[300px_1fr_1fr]" : "lg:grid-cols-2"}`}>
           {/* History sidebar */}
           {showHistory && (
@@ -445,12 +565,63 @@ const Index = () => {
                 )}
               </div>
             </div>
+
+            <div className="rounded-lg border border-border/60 bg-card p-3">
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Import from Job Link</p>
+              <div className="flex gap-2">
+                <Input
+                  value={jobUrl}
+                  onChange={(e) => setJobUrl(e.target.value)}
+                  placeholder="https://jobs.company.com/role"
+                  className="h-9"
+                />
+                <Button
+                  variant="outline"
+                  onClick={handleImportFromJobLink}
+                  disabled={isImportingJob}
+                  className="h-9 gap-1.5"
+                >
+                  {isImportingJob ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                  Import
+                </Button>
+              </div>
+            </div>
             <Textarea
               placeholder="Paste the full job posting here. The AI will extract the role, company, requirements, and tailor your cover letter to match your profile."
               className="min-h-[320px] resize-none border-border bg-card font-body text-sm leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-accent"
               value={input}
               onChange={(e) => setJobPostingInput(e.target.value)}
             />
+
+            {jobInsights && (
+              <div className="rounded-lg border border-border/60 bg-card p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Auto-detected keywords and requirements
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResearchCompany}
+                    disabled={isResearchingCompany}
+                    className="h-7 gap-1.5 text-xs"
+                  >
+                    {isResearchingCompany ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                    Research Company
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {jobInsights.keywords.slice(0, 12).map((kw) => (
+                    <Badge key={kw} variant="secondary" className="text-xs">
+                      {kw}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Company: <span className="font-medium text-foreground">{jobInsights.company_name}</span> • Role: <span className="font-medium text-foreground">{jobInsights.role_title}</span>
+                </p>
+              </div>
+            )}
 
             {/* Generate Button */}
             <Button
@@ -617,6 +788,30 @@ function QualityBadge({ label, pass }: { label: string; pass: boolean }) {
       )}
       {label}
     </Badge>
+  );
+}
+
+function StepCard({
+  title,
+  subtitle,
+  done,
+}: {
+  title: string;
+  subtitle: string;
+  done: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
+      <p className="text-xs text-muted-foreground">{title}</p>
+      <div className="mt-1 flex items-center justify-between">
+        <p className="text-sm font-medium text-foreground">{subtitle}</p>
+        {done ? (
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+        ) : (
+          <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/30" />
+        )}
+      </div>
+    </div>
   );
 }
 

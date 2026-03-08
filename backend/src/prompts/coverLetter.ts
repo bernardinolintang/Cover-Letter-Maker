@@ -42,6 +42,8 @@ export function buildCoverLetterUserPrompt(params: {
   parsedJob: ParsedJobPosting;
   jobPosting: string;
   companyContext?: string;
+  tone?: "professional" | "confident" | "concise" | "story-driven" | "technical";
+  priorityKeywords?: string[];
   availability: string;
   recipientName?: string;
   recipientTitle?: string;
@@ -55,6 +57,8 @@ export function buildCoverLetterUserPrompt(params: {
     parsedJob,
     jobPosting,
     companyContext,
+    tone,
+    priorityKeywords,
     availability,
     recipientName,
     recipientTitle,
@@ -106,6 +110,10 @@ Location: ${parsedJob.location}
 Key Requirements: ${parsedJob.requirements.join("; ")}
 Keywords: ${parsedJob.keywords.join(", ")}`;
 
+  if (priorityKeywords?.length) {
+    prompt += `\nPriority Keywords to emphasize: ${priorityKeywords.join(", ")}`;
+  }
+
   prompt += `\n\nRAW JOB POSTING:\n${jobPosting}`;
 
   if (companyContext) {
@@ -122,6 +130,7 @@ Recipient name: ${recipientName || "Hiring Team"}`;
   if (recipientTitle) prompt += `\nRecipient title: ${recipientTitle}`;
   prompt += `\nRecipient organization: ${recipientOrg || parsedJob.company_name}`;
   if (recipientLocation) prompt += `\nRecipient location: ${recipientLocation}`;
+  if (tone) prompt += `\nPreferred tone: ${tone}`;
 
   prompt += `\n\nGenerate the cover letter now. Remember: NO dashes, NO bullets, 280 to 380 words, mention availability in the opening paragraph.`;
 

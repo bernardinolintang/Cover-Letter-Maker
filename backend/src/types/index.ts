@@ -91,6 +91,10 @@ export const CoverLetterRequestSchema = z.object({
   candidate_profile: CandidateProfileSchema,
   job_posting: z.string().min(1, "Job posting is required"),
   company_context: z.string().optional(),
+  tone: z
+    .enum(["professional", "confident", "concise", "story-driven", "technical"])
+    .optional(),
+  priority_keywords: z.array(z.string()).optional(),
   availability: z.string().optional(),
   recipient_name: z.string().optional(),
   recipient_title: z.string().optional(),

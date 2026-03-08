@@ -4,6 +4,7 @@ const STORAGE_KEY = "covercraft-instructions";
 
 export const DEFAULT_INSTRUCTIONS: GenerationInstructions = {
   availability: "",
+  tone: "professional",
   recipient_name: "",
   recipient_title: "",
   recipient_org: "",

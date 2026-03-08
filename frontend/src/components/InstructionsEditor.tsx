@@ -7,6 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -49,7 +56,7 @@ export function InstructionsEditor({ open, onOpenChange, onInstructionsSaved }: 
     }
   };
 
-  const update = <K extends keyof GenerationInstructions>(key: K, value: string) => {
+  const update = <K extends keyof GenerationInstructions>(key: K, value: GenerationInstructions[K]) => {
     setInstructions((i) => ({ ...i, [key]: value }));
   };
 
@@ -126,6 +133,34 @@ export function InstructionsEditor({ open, onOpenChange, onInstructionsSaved }: 
                   </p>
                 </div>
               )}
+            </section>
+
+            <Separator />
+
+            {/* ── Tone ── */}
+            <section>
+              <h3 className="text-sm font-semibold text-foreground mb-3">Writing Tone</h3>
+              <div>
+                <Label htmlFor="inst-tone">Preferred tone style</Label>
+                <Select
+                  value={instructions.tone || "professional"}
+                  onValueChange={(value) => update("tone", value)}
+                >
+                  <SelectTrigger id="inst-tone">
+                    <SelectValue placeholder="Select a tone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="professional">Professional</SelectItem>
+                    <SelectItem value="confident">Confident</SelectItem>
+                    <SelectItem value="concise">Concise</SelectItem>
+                    <SelectItem value="story-driven">Story-driven</SelectItem>
+                    <SelectItem value="technical">Technical</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This influences style and voice while keeping facts and format constraints.
+                </p>
+              </div>
             </section>
 
             <Separator />

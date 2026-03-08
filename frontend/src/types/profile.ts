@@ -39,6 +39,7 @@ export interface CandidateProfile {
 
 export interface GenerationInstructions {
   availability?: string;
+  tone?: "professional" | "confident" | "concise" | "story-driven" | "technical";
   recipient_name?: string;
   recipient_title?: string;
   recipient_org?: string;
@@ -80,6 +81,8 @@ export interface CoverLetterApiRequest {
   };
   job_posting: string;
   company_context?: string;
+  tone?: "professional" | "confident" | "concise" | "story-driven" | "technical";
+  priority_keywords?: string[];
   availability?: string;
   recipient_name?: string;
   recipient_title?: string;

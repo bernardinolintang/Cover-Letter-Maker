@@ -20,6 +20,15 @@ AI-powered cover letter generator. Paste a job posting and generate a profession
 └── package.json       Root scripts (dev, build, test)
 ```
 
+## Architecture
+
+- Frontend: React + TypeScript + Vite
+- Backend: Node.js + Express (serverless via Vercel `api/index.ts`)
+- LLM: Groq (`llama-3.3-70b-versatile`)
+- Resume Parsing: Client-side PDF/DOCX/TXT extraction, then AI structuring via `/api/profile/extract`
+- Job Intelligence: Job URL import, keyword parsing, and company-context research endpoints
+- Deployment: Vercel (SPA + serverless API)
+
 ## Local Development
 
 ```bash
