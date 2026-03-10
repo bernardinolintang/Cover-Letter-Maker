@@ -406,7 +406,7 @@ const Index = () => {
   };
 
   return (
-    <div className="h-screen bg-background transition-colors overflow-hidden">
+    <div className="min-h-screen bg-background transition-colors md:h-screen md:overflow-hidden">
       {/* Header */}
       <header className="border-b border-border/50 px-6 py-5">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
@@ -419,7 +419,7 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">AI-powered cover letters</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {mounted && (
               <Button
                 variant="ghost"
@@ -477,7 +477,7 @@ const Index = () => {
       </header>
 
       {/* Main */}
-      <main className="mx-auto flex h-[calc(100vh-81px)] max-w-7xl flex-col px-6 py-4">
+      <main className="mx-auto flex max-w-7xl flex-col px-4 py-4 sm:px-6 md:h-[calc(100vh-81px)]">
         <div className="mb-4 text-center">
           <h2 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Craft the perfect <span className="text-accent">cover letter</span>
@@ -505,7 +505,7 @@ const Index = () => {
           <StepCard title="Step 4" subtitle="Generate Letter" done={Boolean(coverLetter)} />
         </div>
 
-        <div className={`grid flex-1 min-h-0 gap-5 ${showHistory ? "lg:grid-cols-[300px_1fr_1fr]" : "lg:grid-cols-2"}`}>
+        <div className={`grid gap-5 md:flex-1 md:min-h-0 ${showHistory ? "lg:grid-cols-[300px_1fr_1fr]" : "lg:grid-cols-2"}`}>
           {/* History sidebar */}
           {showHistory && (
             <div className="rounded-xl border border-border/50 bg-card p-4">
@@ -524,7 +524,7 @@ const Index = () => {
           )}
 
           {/* Input */}
-          <div className="flex min-h-0 flex-col gap-3">
+          <div className="flex flex-col gap-3 md:min-h-0">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-foreground">Job Posting</label>
               <div className="flex items-center gap-1.5">
@@ -587,10 +587,10 @@ const Index = () => {
                 </Button>
               </div>
             </div>
-            <div className="flex-1 min-h-0">
+            <div className="min-h-[220px] md:flex-1 md:min-h-0">
               <Textarea
                 placeholder="Paste the full job posting here. The AI will extract the role, company, requirements, and tailor your cover letter to match your profile."
-                className="h-full min-h-0 resize-none border-border bg-card font-body text-sm leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-accent"
+                className="h-[220px] resize-none border-border bg-card font-body text-sm leading-relaxed placeholder:text-muted-foreground/60 focus-visible:ring-accent md:h-full md:min-h-0"
                 value={input}
                 onChange={(e) => setJobPostingInput(e.target.value)}
               />
@@ -647,7 +647,7 @@ const Index = () => {
           </div>
 
           {/* Output */}
-          <div className="flex min-h-0 flex-col gap-3">
+          <div className="flex flex-col gap-3 md:min-h-0">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-foreground">Your Cover Letter</label>
               {coverLetter && (
@@ -702,7 +702,7 @@ const Index = () => {
               </div>
             )}
 
-            <div className="relative flex-1 min-h-0 rounded-lg border border-border bg-card p-4 sm:p-6">
+            <div className="relative min-h-[260px] rounded-lg border border-border bg-card p-4 sm:p-6 md:flex-1 md:min-h-0">
               {coverLetter ? (
                 <>
                   {/* Edit toggle */}
