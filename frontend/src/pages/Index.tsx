@@ -785,6 +785,10 @@ const Index = () => {
             )}
           </div>
         </div>
+
+        <div className="pt-3 text-center text-[11px] text-muted-foreground/70">
+          © 2026 Bernardino Lintang. All rights reserved.
+        </div>
       </main>
 
       {/* Slide-out panels */}
