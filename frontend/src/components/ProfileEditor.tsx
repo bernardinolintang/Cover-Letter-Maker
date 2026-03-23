@@ -69,6 +69,9 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [documents, setDocuments] = useState<UploadedDocument[]>(loadDocuments);
   const [pendingDeleteId, setPendingDeleteId] = useState<{ type: string; id: string } | null>(null);
+  // Raw string buffers so typing commas/newlines isn't swallowed by immediate array parsing
+  const [rawTechInputs, setRawTechInputs] = useState<Record<string, string>>({});
+  const [rawOutcomeInputs, setRawOutcomeInputs] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docFileInputRef = useRef<HTMLInputElement>(null);
   const skillInputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +80,8 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
     if (open) {
       setProfile(loadProfile());
       setDocuments(loadDocuments());
+      setRawTechInputs({});
+      setRawOutcomeInputs({});
     }
   }, [open]);
 
@@ -307,19 +312,29 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
           experiences: extracted.experiences?.length
             ? [
                 ...prev.experiences,
-                ...extracted.experiences.map((exp: Omit<Experience, "id">) => ({
-                  ...exp,
-                  id: crypto.randomUUID(),
-                })),
+                ...extracted.experiences
+                  .filter((exp: Omit<Experience, "id">) =>
+                    !prev.experiences.some(
+                      (e) => e.title === exp.title && e.company === exp.company
+                    )
+                  )
+                  .map((exp: Omit<Experience, "id">) => ({
+                    ...exp,
+                    id: crypto.randomUUID(),
+                  })),
               ]
             : prev.experiences,
           projects: extracted.projects?.length
             ? [
                 ...prev.projects,
-                ...extracted.projects.map((proj: Omit<Project, "id">) => ({
-                  ...proj,
-                  id: crypto.randomUUID(),
-                })),
+                ...extracted.projects
+                  .filter((proj: Omit<Project, "id">) =>
+                    !prev.projects.some((p) => p.name === proj.name)
+                  )
+                  .map((proj: Omit<Project, "id">) => ({
+                    ...proj,
+                    id: crypto.randomUUID(),
+                  })),
               ]
             : prev.projects,
         };
@@ -371,8 +386,32 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
       toast.error("Name and email are required.");
       return;
     }
-    saveProfile(profile);
-    onProfileSaved(profile);
+
+    // Flush any raw string buffers that haven't been committed via onBlur yet
+    const flushedProfile = {
+      ...profile,
+      projects: profile.projects.map((proj) => ({
+        ...proj,
+        technologies:
+          rawTechInputs[proj.id] !== undefined
+            ? rawTechInputs[proj.id].split(",").map((t) => t.trim()).filter(Boolean)
+            : proj.technologies,
+        outcomes:
+          rawOutcomeInputs[`proj-${proj.id}`] !== undefined
+            ? rawOutcomeInputs[`proj-${proj.id}`].split("\n").filter((o) => o.trim())
+            : proj.outcomes,
+      })),
+      experiences: profile.experiences.map((exp) => ({
+        ...exp,
+        outcomes:
+          rawOutcomeInputs[`exp-${exp.id}`] !== undefined
+            ? rawOutcomeInputs[`exp-${exp.id}`].split("\n").filter((o) => o.trim())
+            : exp.outcomes,
+      })),
+    };
+
+    saveProfile(flushedProfile);
+    onProfileSaved(flushedProfile);
     toast.success("Profile saved!");
     onOpenChange(false);
   };
@@ -639,8 +678,13 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
                     <div>
                       <Label>Outcomes (one per line)</Label>
                       <Textarea
-                        value={(exp.outcomes || []).join("\n")}
-                        onChange={(e) => updateExperience(exp.id, "outcomes", e.target.value.split("\n").filter((o) => o.trim()))}
+                        value={rawOutcomeInputs[`exp-${exp.id}`] ?? (exp.outcomes || []).join("\n")}
+                        onChange={(e) => setRawOutcomeInputs((prev) => ({ ...prev, [`exp-${exp.id}`]: e.target.value }))}
+                        onBlur={(e) => {
+                          const parsed = e.target.value.split("\n").filter((o) => o.trim());
+                          updateExperience(exp.id, "outcomes", parsed);
+                          setRawOutcomeInputs((prev) => ({ ...prev, [`exp-${exp.id}`]: parsed.join("\n") }));
+                        }}
                         placeholder="Reduced onboarding drop off by 22%"
                         className="min-h-[50px] resize-none text-sm"
                       />
@@ -694,16 +738,26 @@ export function ProfileEditor({ open, onOpenChange, onProfileSaved }: ProfileEdi
                     <div>
                       <Label>Technologies (comma separated)</Label>
                       <Input
-                        value={(proj.technologies || []).join(", ")}
-                        onChange={(e) => updateProject(proj.id, "technologies", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))}
+                        value={rawTechInputs[proj.id] ?? (proj.technologies || []).join(", ")}
+                        onChange={(e) => setRawTechInputs((prev) => ({ ...prev, [proj.id]: e.target.value }))}
+                        onBlur={(e) => {
+                          const parsed = e.target.value.split(",").map((t) => t.trim()).filter(Boolean);
+                          updateProject(proj.id, "technologies", parsed);
+                          setRawTechInputs((prev) => ({ ...prev, [proj.id]: parsed.join(", ") }));
+                        }}
                         placeholder="React, Python, PostgreSQL"
                       />
                     </div>
                     <div>
                       <Label>Outcomes (one per line)</Label>
                       <Textarea
-                        value={(proj.outcomes || []).join("\n")}
-                        onChange={(e) => updateProject(proj.id, "outcomes", e.target.value.split("\n").filter((o) => o.trim()))}
+                        value={rawOutcomeInputs[`proj-${proj.id}`] ?? (proj.outcomes || []).join("\n")}
+                        onChange={(e) => setRawOutcomeInputs((prev) => ({ ...prev, [`proj-${proj.id}`]: e.target.value }))}
+                        onBlur={(e) => {
+                          const parsed = e.target.value.split("\n").filter((o) => o.trim());
+                          updateProject(proj.id, "outcomes", parsed);
+                          setRawOutcomeInputs((prev) => ({ ...prev, [`proj-${proj.id}`]: parsed.join("\n") }));
+                        }}
                         placeholder="Used by 500+ students"
                         className="min-h-[50px] resize-none text-sm"
                       />
